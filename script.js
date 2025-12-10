@@ -388,36 +388,53 @@ async function connectXAccount() {
     return;
   }
 
-  // Show fee modal
-  showFeeModal("x_connection", async () => {
-    try {
-      showLoading(true);
-      
-      // In a real implementation, this would use X OAuth
-      // For now, we'll simulate it
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      state.xConnected = true;
-      updateXStatus();
-      showStep("stepTasks");
-      showLoading(false);
-    } catch (error) {
-      console.error("Error connecting X account:", error);
-      showLoading(false);
+  try {
+    showLoading(true);
+    
+    // Pay fee directly without showing modal
+    const feeWei = (parseFloat(CONFIG.FEE_AMOUNT) * 1e18).toString(16);
+    
+    // Send transaction
+    const txHash = await window.ethereum.request({
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: state.walletAddress,
+          to: CONFIG.TREASURY_WALLET,
+          value: `0x${feeWei}`,
+        },
+      ],
+    });
+
+    // Wait for transaction confirmation
+    await waitForTransaction(txHash);
+    
+    // In a real implementation, this would use X OAuth
+    // For now, we'll simulate it
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    
+    state.xConnected = true;
+    updateXStatus();
+    showStep("stepTasks");
+    showLoading(false);
+  } catch (error) {
+    console.error("Error connecting X account:", error);
+    showLoading(false);
+    
+    if (error.code === 4001) {
+      // User rejected transaction
+      console.log("User rejected transaction");
+    } else {
       alert("Failed to connect X account. Please try again.");
     }
-  });
+  }
 }
 
 function updateXStatus() {
-  const xStatus = document.getElementById("xStatus");
+  // X status element removed, just hide the button if connected
   if (state.xConnected) {
-    xStatus.innerHTML = `
-      <div class="status-indicator connected"></div>
-      <span>Connected</span>
-    `;
-      const connectXBtn = document.getElementById("connectXBtn");
-      if (connectXBtn) connectXBtn.style.display = "none";
+    const connectXBtn = document.getElementById("connectXBtn");
+    if (connectXBtn) connectXBtn.style.display = "none";
   }
 }
 
