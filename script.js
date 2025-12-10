@@ -104,11 +104,27 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function setFavicon() {
-  const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
-  link.type = 'image/jpeg';
-  link.rel = 'shortcut icon';
-  link.href = './logo.jpg';
-  document.getElementsByTagName('head')[0].appendChild(link);
+  // Remove existing favicon links
+  const existingLinks = document.querySelectorAll("link[rel*='icon']");
+  existingLinks.forEach(link => link.remove());
+  
+  // Create new favicon links
+  const favicon = document.createElement('link');
+  favicon.rel = 'icon';
+  favicon.type = 'image/jpeg';
+  favicon.href = 'logo.jpg';
+  document.head.appendChild(favicon);
+  
+  const shortcut = document.createElement('link');
+  shortcut.rel = 'shortcut icon';
+  shortcut.type = 'image/jpeg';
+  shortcut.href = 'logo.jpg';
+  document.head.appendChild(shortcut);
+  
+  // Force browser to reload favicon
+  const timestamp = new Date().getTime();
+  favicon.href = `logo.jpg?t=${timestamp}`;
+  shortcut.href = `logo.jpg?t=${timestamp}`;
 }
 
 function initializeApp() {
