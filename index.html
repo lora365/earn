@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Earn XP by completing tasks on Resilora - Connect wallet, link X account, and complete missions to earn rewards."
+    />
+    <title>Earn XP | Resilora</title>
+    <link rel="icon" type="image/jpeg" href="../logo.jpg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Lora:ital,wght@1,500;1,600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-container">
+      <header class="app-header">
+        <div class="header-content">
+          <div class="logo brand-name">resilora</div>
+          <div class="header-actions">
+            <div class="wallet-info" id="walletInfo" style="display: none;">
+              <span class="wallet-address" id="walletAddress"></span>
+              <button class="btn-small" id="disconnectBtn">Disconnect</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="app-main">
+        <div class="container">
+          <!-- Step 1: Wallet Connection -->
+          <section class="step-section" id="stepWallet">
+            <div class="step-card">
+              <div class="step-number">1</div>
+              <h2>Connect Your Wallet</h2>
+              <p>Connect your MetaMask wallet to get started, complete tasks, and earn points</p>
+              <button class="btn-primary large" id="connectWalletBtnMain">
+                <span>Connect Wallet</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- Step 2: X Account Connection -->
+          <section class="step-section" id="stepX" style="display: none;">
+            <div class="step-card">
+              <div class="step-number">2</div>
+              <h2>Connect Your X Account</h2>
+              <p>Link your X (Twitter) account to unlock tasks and earn XP</p>
+              <div class="x-status" id="xStatus">
+                <div class="status-indicator disconnected"></div>
+                <span>Not Connected</span>
+              </div>
+              <button class="btn-primary large" id="connectXBtn">
+                Connect X Account
+              </button>
+              <p class="fee-note">Fee: 0.01 BNB will be charged for connection</p>
+            </div>
+          </section>
+
+          <!-- Step 3: Tasks -->
+          <section class="step-section" id="stepTasks" style="display: none;">
+            <div class="tasks-header">
+              <h2>Available Tasks</h2>
+              <div class="xp-balance">
+                <span class="xp-label">Total XP:</span>
+                <span class="xp-value" id="totalXP">0</span>
+              </div>
+            </div>
+
+            <div class="tasks-grid" id="tasksGrid">
+              <!-- Tasks will be dynamically added here -->
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <!-- Fee Payment Modal -->
+      <div class="modal" id="feeModal" style="display: none;">
+        <div class="modal-content">
+          <h3>Confirm Transaction</h3>
+          <p>Fee: <strong>0.01 BNB</strong></p>
+          <p class="modal-note">This fee will be sent to the Resilora treasury wallet</p>
+          <div class="modal-actions">
+            <button class="btn-secondary" id="cancelFeeBtn">Cancel</button>
+            <button class="btn-primary" id="confirmFeeBtn">Confirm & Pay</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading Overlay -->
+      <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Processing transaction...</p>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
+
