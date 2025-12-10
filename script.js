@@ -96,36 +96,10 @@ function waitForMetaMask(maxWait = 3000) {
 
 // Initialize
 document.addEventListener("DOMContentLoaded", async () => {
-  // Set favicon dynamically
-  setFavicon();
   // Wait for MetaMask to be ready
   await waitForMetaMask();
   initializeApp();
 });
-
-function setFavicon() {
-  // Remove existing favicon links
-  const existingLinks = document.querySelectorAll("link[rel*='icon']");
-  existingLinks.forEach(link => link.remove());
-  
-  // Create new favicon links
-  const favicon = document.createElement('link');
-  favicon.rel = 'icon';
-  favicon.type = 'image/jpeg';
-  favicon.href = 'logo.jpg';
-  document.head.appendChild(favicon);
-  
-  const shortcut = document.createElement('link');
-  shortcut.rel = 'shortcut icon';
-  shortcut.type = 'image/jpeg';
-  shortcut.href = 'logo.jpg';
-  document.head.appendChild(shortcut);
-  
-  // Force browser to reload favicon
-  const timestamp = new Date().getTime();
-  favicon.href = `logo.jpg?t=${timestamp}`;
-  shortcut.href = `logo.jpg?t=${timestamp}`;
-}
 
 function initializeApp() {
   // Check if wallet is already connected
