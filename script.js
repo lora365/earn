@@ -233,20 +233,17 @@ async function connectWallet() {
     console.error("Error connecting wallet:", error);
     showLoading(false);
     
-    // Check error codes
+    // Silently handle errors - don't show alerts
+    // Only log to console for debugging
     if (error.code === 4001) {
-      // User rejected the request
-      alert("Connection rejected. Please approve the connection request.");
+      // User rejected - this is fine, no need to alert
+      console.log("User rejected connection");
     } else if (error.code === -32002) {
-      // Request already pending
-      alert("A connection request is already pending. Please check MetaMask.");
-    } else if (error.message && error.message.includes("not found")) {
-      // Provider not found
-      alert("MetaMask is not installed. Please install MetaMask to continue.");
-      window.open("https://metamask.io/", "_blank");
+      // Request already pending - this is fine
+      console.log("Connection request already pending");
     } else {
-      // Other errors - don't redirect, just show error
-      alert("Failed to connect wallet: " + (error.message || "Unknown error. Please make sure MetaMask is installed and unlocked."));
+      // Other errors - log but don't alert
+      console.log("Connection error:", error.message || "Unknown error");
     }
   }
 }
@@ -307,17 +304,37 @@ function disconnectWallet() {
 }
 
 function updateWalletUI() {
-  const walletInfo = document.getElementById("walletInfo");
-  const walletAddress = document.getElementById("walletAddress");
-  const connectBtn = document.getElementById("connectWalletBtn");
+  try {
+    // Wait for DOM to be ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => updateWalletUI());
+      return;
+    }
 
-  if (state.walletConnected) {
-    walletInfo.style.display = "flex";
-    walletAddress.textContent = `${state.walletAddress.slice(0, 6)}...${state.walletAddress.slice(-4)}`;
-    connectBtn.style.display = "none";
-  } else {
-    walletInfo.style.display = "none";
-    connectBtn.style.display = "block";
+    const walletInfo = document.getElementById("walletInfo");
+    const walletAddress = document.getElementById("walletAddress");
+
+    if (!walletInfo || !walletAddress) {
+      // Elements not found, try again after a short delay
+      setTimeout(() => updateWalletUI(), 100);
+      return;
+    }
+
+    // Double-check elements exist before accessing their properties
+    if (state.walletConnected && state.walletAddress) {
+      if (walletInfo && walletAddress) {
+        walletInfo.style.display = "flex";
+        walletAddress.textContent = `${state.walletAddress.slice(0, 6)}...${state.walletAddress.slice(-4)}`;
+      }
+    } else {
+      if (walletInfo) {
+        walletInfo.style.display = "none";
+      }
+    }
+  } catch (error) {
+    console.error("Error in updateWalletUI:", error);
+    // Retry after a short delay if there's an error
+    setTimeout(() => updateWalletUI(), 200);
   }
 }
 
@@ -356,7 +373,8 @@ function updateXStatus() {
       <div class="status-indicator connected"></div>
       <span>Connected</span>
     `;
-    document.getElementById("connectXBtn").style.display = "none";
+      const connectXBtn = document.getElementById("connectXBtn");
+      if (connectXBtn) connectXBtn.style.display = "none";
   }
 }
 
@@ -513,9 +531,12 @@ async function waitForTransaction(txHash) {
 
 // UI Helper Functions
 function showStep(stepId) {
-  document.querySelectorAll(".step-section").forEach((section) => {
-    section.style.display = "none";
-  });
+  const sections = document.querySelectorAll(".step-section");
+  if (sections) {
+    sections.forEach((section) => {
+      if (section) section.style.display = "none";
+    });
+  }
   const step = document.getElementById(stepId);
   if (step) {
     step.style.display = "block";
@@ -523,6 +544,9 @@ function showStep(stepId) {
 }
 
 function showLoading(show) {
-  document.getElementById("loadingOverlay").style.display = show ? "flex" : "none";
+  const loadingOverlay = document.getElementById("loadingOverlay");
+  if (loadingOverlay) {
+    loadingOverlay.style.display = show ? "flex" : "none";
+  }
 }
 
