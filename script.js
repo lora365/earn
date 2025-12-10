@@ -96,10 +96,20 @@ function waitForMetaMask(maxWait = 3000) {
 
 // Initialize
 document.addEventListener("DOMContentLoaded", async () => {
+  // Set favicon dynamically
+  setFavicon();
   // Wait for MetaMask to be ready
   await waitForMetaMask();
   initializeApp();
 });
+
+function setFavicon() {
+  const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
+  link.type = 'image/jpeg';
+  link.rel = 'shortcut icon';
+  link.href = './logo.jpg';
+  document.getElementsByTagName('head')[0].appendChild(link);
+}
 
 function initializeApp() {
   // Check if wallet is already connected
