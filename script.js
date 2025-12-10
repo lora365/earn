@@ -11,6 +11,7 @@ let state = {
   walletAddress: null,
   xConnected: false,
   totalXP: 0,
+  ethereumProvider: null, // Store the ethereum provider to remove listeners
   tasks: [
     {
       id: 1,
@@ -224,6 +225,9 @@ async function connectWallet() {
       await switchNetwork();
     }
 
+    // Store the provider to remove listeners later
+    state.ethereumProvider = ethereum;
+
     // Listen for account changes
     ethereum.on("accountsChanged", handleAccountsChanged);
     ethereum.on("chainChanged", handleChainChanged);
@@ -294,13 +298,52 @@ function handleChainChanged(chainId) {
   window.location.reload();
 }
 
-function disconnectWallet() {
-  state.walletConnected = false;
-  state.walletAddress = null;
-  state.xConnected = false;
-  updateWalletUI();
-  showStep("stepWallet");
-  renderTasks();
+async function disconnectWallet() {
+  try {
+    // Remove event listeners if provider exists
+    if (state.ethereumProvider) {
+      state.ethereumProvider.removeListener("accountsChanged", handleAccountsChanged);
+      state.ethereumProvider.removeListener("chainChanged", handleChainChanged);
+    }
+
+    // Revoke permissions from MetaMask
+    if (window.ethereum) {
+      try {
+        await window.ethereum.request({
+          method: "wallet_revokePermissions",
+          params: [
+            {
+              eth_accounts: {},
+            },
+          ],
+        });
+      } catch (error) {
+        // Some MetaMask versions might not support this, that's okay
+        console.log("Could not revoke permissions:", error);
+      }
+    }
+
+    // Clear state
+    state.walletConnected = false;
+    state.walletAddress = null;
+    state.xConnected = false;
+    state.ethereumProvider = null;
+
+    // Update UI
+    updateWalletUI();
+    showStep("stepWallet");
+    renderTasks();
+  } catch (error) {
+    console.error("Error disconnecting wallet:", error);
+    // Even if there's an error, clear the local state
+    state.walletConnected = false;
+    state.walletAddress = null;
+    state.xConnected = false;
+    state.ethereumProvider = null;
+    updateWalletUI();
+    showStep("stepWallet");
+    renderTasks();
+  }
 }
 
 function updateWalletUI() {
