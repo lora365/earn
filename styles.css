@@ -109,32 +109,37 @@ body::before {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 16px;
+  padding: 10px 18px;
   background: var(--card);
   backdrop-filter: blur(10px);
-  border-radius: 8px;
-  border: 1px solid var(--border);
+  border-radius: 12px;
+  border: 2px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
 }
 
 .wallet-info:hover {
   border-color: var(--yellow);
-  box-shadow: 0 4px 12px rgba(246, 201, 14, 0.2);
+  box-shadow: 0 4px 16px rgba(246, 201, 14, 0.3);
+  transform: translateY(-1px);
 }
 
 .wallet-address {
   font-family: monospace;
   font-size: 14px;
+  font-weight: 600;
   color: var(--text);
+  letter-spacing: 0.5px;
 }
 
 .btn-small {
-  padding: 6px 12px;
+  padding: 6px 14px;
   font-size: 12px;
+  font-weight: 500;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text);
-  border-radius: 6px;
+  border-radius: 20px;
   cursor: pointer;
   transition: all 0.3s ease;
 }

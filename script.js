@@ -61,6 +61,59 @@ let state = {
   ],
 };
 
+// State persistence functions
+function saveStateToLocalStorage() {
+  try {
+    const stateToSave = {
+      walletConnected: state.walletConnected,
+      walletAddress: state.walletAddress,
+      xConnected: state.xConnected,
+      totalXP: state.totalXP,
+      tasks: state.tasks,
+    };
+    localStorage.setItem('earn_app_state', JSON.stringify(stateToSave));
+  } catch (error) {
+    console.error("Error saving state to localStorage:", error);
+  }
+}
+
+function loadStateFromLocalStorage() {
+  try {
+    const savedState = localStorage.getItem('earn_app_state');
+    if (savedState) {
+      const parsed = JSON.parse(savedState);
+      // Restore state
+      state.walletConnected = parsed.walletConnected || false;
+      state.walletAddress = parsed.walletAddress || null;
+      state.xConnected = parsed.xConnected || false;
+      state.totalXP = parsed.totalXP || 0;
+      
+      // Restore tasks status
+      if (parsed.tasks && Array.isArray(parsed.tasks)) {
+        parsed.tasks.forEach(savedTask => {
+          const task = state.tasks.find(t => t.id === savedTask.id);
+          if (task) {
+            task.status = savedTask.status || "pending";
+          }
+        });
+      }
+      
+      return true;
+    }
+  } catch (error) {
+    console.error("Error loading state from localStorage:", error);
+  }
+  return false;
+}
+
+function clearStateFromLocalStorage() {
+  try {
+    localStorage.removeItem('earn_app_state');
+  } catch (error) {
+    console.error("Error clearing state from localStorage:", error);
+  }
+}
+
 // Wait for MetaMask to inject
 function waitForMetaMask(maxWait = 3000) {
   return new Promise((resolve) => {
@@ -111,8 +164,27 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function initializeApp() {
+  // Load state from localStorage first
+  const stateLoaded = loadStateFromLocalStorage();
+  
   // Check if wallet is already connected
   checkWalletConnection();
+  
+  // If state was loaded, restore UI
+  if (stateLoaded) {
+    if (state.walletConnected && state.walletAddress) {
+      updateWalletUI();
+      if (state.xConnected) {
+        updateXStatus();
+        showStep("stepTasks");
+        updateTotalXP();
+      } else {
+        showStep("stepX");
+      }
+    } else if (state.walletConnected) {
+      showStep("stepWallet");
+    }
+  }
 
   // Check for OAuth callback - delay slightly to ensure DOM is ready
   setTimeout(() => {
@@ -218,6 +290,7 @@ async function checkWalletConnection() {
       if (accounts.length > 0) {
         state.walletConnected = true;
         state.walletAddress = accounts[0];
+        saveStateToLocalStorage();
         updateWalletUI();
         showStep("stepX");
       }
@@ -301,6 +374,7 @@ async function connectWallet() {
     if (accounts && accounts.length > 0) {
       state.walletConnected = true;
       state.walletAddress = accounts[0];
+      saveStateToLocalStorage();
       updateWalletUI();
       showStep("stepX");
     }
@@ -414,6 +488,9 @@ async function disconnectWallet() {
     state.walletAddress = null;
     state.xConnected = false;
     state.ethereumProvider = null;
+    
+    // Clear localStorage
+    clearStateFromLocalStorage();
 
     // Update UI
     updateWalletUI();
@@ -645,6 +722,7 @@ async function proceedWithFeePayment() {
 
     // Complete X connection
     state.xConnected = true;
+    saveStateToLocalStorage();
     updateXStatus();
     showStep("stepTasks");
     
@@ -736,6 +814,9 @@ async function handleTaskAction(task) {
       // Update task status
       task.status = "completed";
       state.totalXP += task.xp;
+      
+      // Save state to localStorage
+      saveStateToLocalStorage();
       
       // Update UI
       updateTotalXP();
