@@ -167,8 +167,8 @@ function initializeApp() {
   // Load state from localStorage first
   const stateLoaded = loadStateFromLocalStorage();
   
-  // Check if wallet is already connected
-  checkWalletConnection();
+  // Check if wallet is already connected (skip step change to preserve loaded state)
+  checkWalletConnection(true);
   
   // If state was loaded, restore UI
   if (stateLoaded) {
@@ -183,6 +183,18 @@ function initializeApp() {
       }
     } else if (state.walletConnected) {
       showStep("stepWallet");
+    }
+  } else {
+    // If state not loaded, check wallet and show appropriate step
+    if (state.walletConnected && state.walletAddress) {
+      updateWalletUI();
+      if (state.xConnected) {
+        updateXStatus();
+        showStep("stepTasks");
+        updateTotalXP();
+      } else {
+        showStep("stepX");
+      }
     }
   }
 
@@ -283,16 +295,41 @@ function checkOAuthCallback() {
 }
 
 // Wallet Functions
-async function checkWalletConnection() {
+async function checkWalletConnection(skipStepChange = false) {
   if (typeof window.ethereum !== "undefined") {
     try {
       const accounts = await window.ethereum.request({ method: "eth_accounts" });
       if (accounts.length > 0) {
+        const currentAddress = accounts[0];
+        
+        // If wallet address changed, clear state (different wallet connected)
+        if (state.walletAddress && state.walletAddress !== currentAddress) {
+          console.log("Wallet address changed, clearing state");
+          clearStateFromLocalStorage();
+          state.walletConnected = false;
+          state.walletAddress = null;
+          state.xConnected = false;
+          state.totalXP = 0;
+          state.tasks.forEach(task => task.status = "pending");
+        }
+        
         state.walletConnected = true;
-        state.walletAddress = accounts[0];
+        state.walletAddress = currentAddress;
         saveStateToLocalStorage();
         updateWalletUI();
-        showStep("stepX");
+        // Only change step if not skipping (i.e., when called from initializeApp after state load)
+        if (!skipStepChange) {
+          showStep("stepX");
+        }
+      } else {
+        // No accounts connected, clear state if it exists
+        if (state.walletConnected) {
+          console.log("No wallet connected, clearing state");
+          clearStateFromLocalStorage();
+          state.walletConnected = false;
+          state.walletAddress = null;
+          state.xConnected = false;
+        }
       }
     } catch (error) {
       console.error("Error checking wallet:", error);
