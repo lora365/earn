@@ -3,6 +3,12 @@ const CONFIG = {
   FEE_AMOUNT: "0.000012", // BNB
   TREASURY_WALLET: "0xa382b392b0ef1f16a70ff6708363b95f87b915f6", // Treasury wallet
   CHAIN_ID: 56, // BSC Mainnet (use 97 for testnet)
+  // X OAuth Configuration
+  // Note: You need to create a Twitter App at https://developer.twitter.com/
+  // and get your Client ID and set up redirect URI
+  X_CLIENT_ID: "VTR6QUFxVEJwYzZySGR1aHFUTlE6MTpjaQ", // X (Twitter) OAuth Client ID
+  X_REDIRECT_URI: window.location.origin + window.location.pathname, // Current page URL
+  X_SCOPE: "tweet.read users.read offline.access", // OAuth scopes
 };
 
 // State
@@ -105,6 +111,9 @@ function initializeApp() {
   // Check if wallet is already connected
   checkWalletConnection();
 
+  // Check for OAuth callback
+  checkOAuthCallback();
+
   // Event listeners
   const connectBtn = document.getElementById("connectWalletBtnMain");
   if (connectBtn) {
@@ -122,6 +131,46 @@ function initializeApp() {
 
   // Load tasks
   renderTasks();
+}
+
+function checkOAuthCallback() {
+  // Check if we're returning from X OAuth
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
+  const stateParam = urlParams.get('state');
+  const error = urlParams.get('error');
+
+  if (error) {
+    alert("X authorization was cancelled or failed. Please try again.");
+    // Clean URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+    sessionStorage.removeItem('x_oauth_state');
+    return;
+  }
+
+  if (code && stateParam && state.walletConnected) {
+    // Verify state token for security
+    const storedState = sessionStorage.getItem('x_oauth_state');
+    if (storedState && storedState === stateParam) {
+      // State matches, proceed
+      sessionStorage.removeItem('x_oauth_state');
+      
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Note: In production, you would exchange the code for an access token via backend
+      // For now, we'll proceed directly to fee payment
+      console.log("X OAuth authorization successful. Code:", code);
+      
+      // Proceed with fee payment
+      proceedWithFeePayment();
+    } else {
+      // State mismatch - possible CSRF attack
+      alert("Security verification failed. Please try again.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      sessionStorage.removeItem('x_oauth_state');
+    }
+  }
 }
 
 // Wallet Functions
@@ -389,75 +438,61 @@ async function connectXAccount() {
   }
 
   try {
-    // Step 1: Redirect to X for authentication
-    // Open X in a new window/tab for OAuth
-    const xAuthUrl = "https://twitter.com/i/oauth2/authorize"; // X OAuth URL
-    // For now, we'll use a simple redirect approach
-    // In production, you would use proper OAuth with your app credentials
-    
-    // Show confirmation dialog before redirecting
-    const userConfirmed = confirm(
-      "You will be redirected to X (Twitter) to connect your account.\n\n" +
-      "Please:\n" +
-      "1. Log in to your X account\n" +
-      "2. Authorize the connection\n" +
-      "3. Return to this page\n\n" +
-      "Click OK to continue."
-    );
-
-    if (!userConfirmed) {
+    // Check if X_CLIENT_ID is configured
+    if (CONFIG.X_CLIENT_ID === "YOUR_X_CLIENT_ID") {
+      alert(
+        "X OAuth is not configured yet.\n\n" +
+        "Please:\n" +
+        "1. Create a Twitter App at https://developer.twitter.com/\n" +
+        "2. Get your OAuth 2.0 Client ID\n" +
+        "3. Set up redirect URI: " + CONFIG.X_REDIRECT_URI + "\n" +
+        "4. Update X_CLIENT_ID in script.js"
+      );
       return;
     }
 
-    // Open X in new tab/window
-    // Note: In a real implementation, you would use proper OAuth flow
-    // For now, we'll open X and then show a confirmation when user returns
-    window.open("https://x.com/login", "_blank");
+    // Step 1: Redirect to X OAuth authorization
+    // This will show the X authorization page like in the image
+    const stateToken = generateStateToken();
+    const authUrl = buildXAuthUrl(stateToken);
     
-    // Show X connection confirmation modal
-    showXConnectionModal();
+    // Store state token in sessionStorage for verification
+    sessionStorage.setItem('x_oauth_state', stateToken);
+    
+    // Redirect to X OAuth page
+    // User will see: "Click Social Twitter wants to access your X account"
+    // with "Authorize app" button
+    window.location.href = authUrl;
   } catch (error) {
     console.error("Error connecting X account:", error);
     alert("Failed to connect X account. Please try again.");
   }
 }
 
-function showXConnectionModal() {
-  // Create or show X connection confirmation modal
-  let modal = document.getElementById("xConnectionModal");
-  
-  if (!modal) {
-    // Create modal if it doesn't exist
-    modal = document.createElement("div");
-    modal.id = "xConnectionModal";
-    modal.className = "modal";
-    modal.style.display = "flex";
-    modal.innerHTML = `
-      <div class="modal-content">
-        <h3>Connect Your X Account</h3>
-        <p>Have you successfully authorized the connection on X?</p>
-        <p class="modal-note">Please make sure you've logged in and authorized the connection on X, then click "Yes, I've Connected" below.</p>
-        <div class="modal-actions">
-          <button class="btn-secondary" id="cancelXConnectionBtn">Cancel</button>
-          <button class="btn-primary" id="confirmXConnectionBtn">Yes, I've Connected</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
+function buildXAuthUrl(stateToken) {
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: CONFIG.X_CLIENT_ID,
+    redirect_uri: CONFIG.X_REDIRECT_URI,
+    scope: CONFIG.X_SCOPE,
+    state: stateToken,
+    code_challenge: generateCodeChallenge(), // For PKCE (recommended)
+    code_challenge_method: 'plain',
+  });
 
-    // Add event listeners
-    document.getElementById("cancelXConnectionBtn").addEventListener("click", () => {
-      modal.style.display = "none";
-    });
-
-    document.getElementById("confirmXConnectionBtn").addEventListener("click", async () => {
-      modal.style.display = "none";
-      await proceedWithFeePayment();
-    });
-  } else {
-    modal.style.display = "flex";
-  }
+  return `https://twitter.com/i/oauth2/authorize?${params.toString()}`;
 }
+
+function generateStateToken() {
+  // Generate a random state token for security
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
+function generateCodeChallenge() {
+  // Simple code challenge for PKCE (in production, use proper PKCE)
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
 
 async function proceedWithFeePayment() {
   // Step 2: After X connection is confirmed, proceed with MetaMask fee payment
