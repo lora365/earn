@@ -114,8 +114,10 @@ function initializeApp() {
   // Check if wallet is already connected
   checkWalletConnection();
 
-  // Check for OAuth callback
-  checkOAuthCallback();
+  // Check for OAuth callback - delay slightly to ensure DOM is ready
+  setTimeout(() => {
+    checkOAuthCallback();
+  }, 100);
 
   // Event listeners
   const connectBtn = document.getElementById("connectWalletBtnMain");
@@ -145,6 +147,8 @@ function checkOAuthCallback() {
   const stateParam = urlParams.get('state');
   const error = urlParams.get('error');
 
+  console.log("Checking OAuth callback:", { code: code ? "present" : "missing", state: stateParam ? "present" : "missing", error, walletConnected: state.walletConnected });
+
   if (error) {
     alert("X authorization was cancelled or failed. Please try again.");
     // Clean URL
@@ -153,9 +157,11 @@ function checkOAuthCallback() {
     return;
   }
 
-  if (code && stateParam && state.walletConnected) {
+  if (code && stateParam) {
     // Verify state token for security
     const storedState = sessionStorage.getItem('x_oauth_state');
+    console.log("State verification:", { storedState, stateParam, match: storedState === stateParam });
+    
     if (storedState && storedState === stateParam) {
       // State matches, proceed
       sessionStorage.removeItem('x_oauth_state');
@@ -170,13 +176,36 @@ function checkOAuthCallback() {
       // and fetch user information from X API
       console.log("X OAuth authorization successful. Code:", code);
       
+      // Check if wallet is connected, if not show alert
+      if (!state.walletConnected) {
+        alert("Please connect your wallet first, then try connecting X account again.");
+        showStep("stepWallet");
+        return;
+      }
+      
       // Fetch and display X account information
       showXAccountConfirmation(code);
     } else {
-      // State mismatch - possible CSRF attack
-      alert("Security verification failed. Please try again.");
+      // State mismatch - possible CSRF attack or state expired
+      console.error("State mismatch or missing:", { storedState, stateParam });
+      alert("Security verification failed. Please try connecting X account again.");
       window.history.replaceState({}, document.title, window.location.pathname);
       sessionStorage.removeItem('x_oauth_state');
+      // Show X connection step
+      if (state.walletConnected) {
+        showStep("stepX");
+      } else {
+        showStep("stepWallet");
+      }
+    }
+  } else if (code || stateParam) {
+    // Partial callback - missing parameters
+    console.error("Incomplete OAuth callback:", { code: !!code, state: !!stateParam });
+    window.history.replaceState({}, document.title, window.location.pathname);
+    if (state.walletConnected) {
+      showStep("stepX");
+    } else {
+      showStep("stepWallet");
     }
   }
 }
@@ -539,6 +568,13 @@ async function showXAccountConfirmation(oauthCode) {
   // Note: In production, you would exchange the code for an access token via backend
   // and fetch user information from X API (GET /2/users/me)
   
+  console.log("Showing X account confirmation modal, code:", oauthCode);
+  
+  // Wait for DOM to be ready
+  if (document.readyState === 'loading') {
+    await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
+  }
+  
   try {
     // For now, we'll simulate fetching user info
     // In production, make an API call to your backend to exchange code for token and get user info
@@ -559,12 +595,18 @@ async function showXAccountConfirmation(oauthCode) {
           </div>
         </div>
       `;
+      console.log("Account info element updated");
+    } else {
+      console.error("xAccountInfo element not found!");
     }
     
     // Show modal
     const modal = document.getElementById("xAccountConfirmModal");
     if (modal) {
       modal.style.display = "flex";
+      console.log("X account confirmation modal shown");
+    } else {
+      console.error("xAccountConfirmModal element not found!");
     }
   } catch (error) {
     console.error("Error fetching X user info:", error);
@@ -586,6 +628,7 @@ async function showXAccountConfirmation(oauthCode) {
     const modal = document.getElementById("xAccountConfirmModal");
     if (modal) {
       modal.style.display = "flex";
+      console.log("X account confirmation modal shown (fallback)");
     }
   }
 }
