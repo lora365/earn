@@ -61,46 +61,75 @@ let state = {
   ],
 };
 
-// State persistence functions
+// State persistence functions - wallet address specific
+function getStateKey(walletAddress) {
+  if (!walletAddress) {
+    return 'earn_app_state_default';
+  }
+  return `earn_app_state_${walletAddress.toLowerCase()}`;
+}
+
 function saveStateToLocalStorage() {
   try {
+    if (!state.walletAddress) {
+      console.log("No wallet address, skipping state save");
+      return;
+    }
+    
     const stateToSave = {
-      walletConnected: state.walletConnected,
       walletAddress: state.walletAddress,
       xConnected: state.xConnected,
       totalXP: state.totalXP,
-      tasks: state.tasks,
+      tasks: state.tasks.map(task => ({
+        id: task.id,
+        status: task.status,
+        opened: task.opened || false,
+        openedAt: task.openedAt || null,
+      })),
     };
-    localStorage.setItem('earn_app_state', JSON.stringify(stateToSave));
+    
+    const key = getStateKey(state.walletAddress);
+    localStorage.setItem(key, JSON.stringify(stateToSave));
+    console.log("State saved for wallet:", state.walletAddress);
   } catch (error) {
     console.error("Error saving state to localStorage:", error);
   }
 }
 
-function loadStateFromLocalStorage() {
+function loadStateFromLocalStorage(walletAddress) {
   try {
-    const savedState = localStorage.getItem('earn_app_state');
+    if (!walletAddress) {
+      console.log("No wallet address provided, cannot load state");
+      return false;
+    }
+    
+    const key = getStateKey(walletAddress);
+    const savedState = localStorage.getItem(key);
+    
     if (savedState) {
       const parsed = JSON.parse(savedState);
-      // Restore state
-      state.walletConnected = parsed.walletConnected || false;
-      state.walletAddress = parsed.walletAddress || null;
-      state.xConnected = parsed.xConnected || false;
-      state.totalXP = parsed.totalXP || 0;
       
-      // Restore tasks status, opened flag, and openedAt timestamp
-      if (parsed.tasks && Array.isArray(parsed.tasks)) {
-        parsed.tasks.forEach(savedTask => {
-          const task = state.tasks.find(t => t.id === savedTask.id);
-          if (task) {
-            task.status = savedTask.status || "pending";
-            task.opened = savedTask.opened || false;
-            task.openedAt = savedTask.openedAt || null;
-          }
-        });
+      // Only load if wallet address matches
+      if (parsed.walletAddress && parsed.walletAddress.toLowerCase() === walletAddress.toLowerCase()) {
+        // Restore state
+        state.xConnected = parsed.xConnected || false;
+        state.totalXP = parsed.totalXP || 0;
+        
+        // Restore tasks status, opened flag, and openedAt timestamp
+        if (parsed.tasks && Array.isArray(parsed.tasks)) {
+          parsed.tasks.forEach(savedTask => {
+            const task = state.tasks.find(t => t.id === savedTask.id);
+            if (task) {
+              task.status = savedTask.status || "pending";
+              task.opened = savedTask.opened || false;
+              task.openedAt = savedTask.openedAt || null;
+            }
+          });
+        }
+        
+        console.log("State loaded for wallet:", walletAddress);
+        return true;
       }
-      
-      return true;
     }
   } catch (error) {
     console.error("Error loading state from localStorage:", error);
@@ -108,9 +137,21 @@ function loadStateFromLocalStorage() {
   return false;
 }
 
-function clearStateFromLocalStorage() {
+function clearStateFromLocalStorage(walletAddress) {
   try {
-    localStorage.removeItem('earn_app_state');
+    if (walletAddress) {
+      const key = getStateKey(walletAddress);
+      localStorage.removeItem(key);
+      console.log("State cleared for wallet:", walletAddress);
+    } else {
+      // Clear all wallet states (fallback)
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.startsWith('earn_app_state_')) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
   } catch (error) {
     console.error("Error clearing state from localStorage:", error);
   }
@@ -165,39 +206,38 @@ document.addEventListener("DOMContentLoaded", async () => {
   initializeApp();
 });
 
-function initializeApp() {
-  // Load state from localStorage first
-  const stateLoaded = loadStateFromLocalStorage();
+async function initializeApp() {
+  // Check if wallet is already connected first
+  await checkWalletConnection(true);
   
-  // Check if wallet is already connected (skip step change to preserve loaded state)
-  checkWalletConnection(true);
+  // Load state from localStorage for the connected wallet
+  let stateLoaded = false;
+  if (state.walletConnected && state.walletAddress) {
+    stateLoaded = loadStateFromLocalStorage(state.walletAddress);
+  }
   
   // If state was loaded, restore UI
-  if (stateLoaded) {
-    if (state.walletConnected && state.walletAddress) {
-      updateWalletUI();
-      if (state.xConnected) {
-        updateXStatus();
-        showStep("stepTasks");
-        updateTotalXP();
-      } else {
-        showStep("stepX");
-      }
-    } else if (state.walletConnected) {
-      showStep("stepWallet");
+  if (stateLoaded && state.walletConnected && state.walletAddress) {
+    updateWalletUI();
+    if (state.xConnected) {
+      updateXStatus();
+      showStep("stepTasks");
+      updateTotalXP();
+    } else {
+      showStep("stepX");
     }
-  } else {
-    // If state not loaded, check wallet and show appropriate step
-    if (state.walletConnected && state.walletAddress) {
-      updateWalletUI();
-      if (state.xConnected) {
-        updateXStatus();
-        showStep("stepTasks");
-        updateTotalXP();
-      } else {
-        showStep("stepX");
-      }
-    }
+  } else if (state.walletConnected && state.walletAddress) {
+    // Wallet connected but no saved state - fresh start
+    updateWalletUI();
+    // Reset tasks to initial state for new wallet
+    state.tasks.forEach(task => {
+      task.status = "pending";
+      task.opened = false;
+      task.openedAt = null;
+    });
+    state.totalXP = 0;
+    state.xConnected = false;
+    showStep("stepX");
   }
 
   // Check for OAuth callback - delay slightly to ensure DOM is ready
@@ -304,33 +344,56 @@ async function checkWalletConnection(skipStepChange = false) {
       if (accounts.length > 0) {
         const currentAddress = accounts[0];
         
-        // If wallet address changed, clear state (different wallet connected)
-        if (state.walletAddress && state.walletAddress !== currentAddress) {
-          console.log("Wallet address changed, clearing state");
-          clearStateFromLocalStorage();
+        // If wallet address changed, load state for new wallet
+        if (state.walletAddress && state.walletAddress.toLowerCase() !== currentAddress.toLowerCase()) {
+          console.log("Wallet address changed, loading state for new wallet:", currentAddress);
+          // Reset state for new wallet
           state.walletConnected = false;
           state.walletAddress = null;
           state.xConnected = false;
           state.totalXP = 0;
-          state.tasks.forEach(task => task.status = "pending");
+          state.tasks.forEach(task => {
+            task.status = "pending";
+            task.opened = false;
+            task.openedAt = null;
+          });
         }
         
         state.walletConnected = true;
         state.walletAddress = currentAddress;
-        saveStateToLocalStorage();
+        
+        // Load state for this wallet address
+        const stateLoaded = loadStateFromLocalStorage(currentAddress);
+        
+        // If no state found, initialize fresh state
+        if (!stateLoaded) {
+          console.log("No saved state found for wallet, starting fresh");
+          state.xConnected = false;
+          state.totalXP = 0;
+          state.tasks.forEach(task => {
+            task.status = "pending";
+            task.opened = false;
+            task.openedAt = null;
+          });
+        }
+        
         updateWalletUI();
         // Only change step if not skipping (i.e., when called from initializeApp after state load)
         if (!skipStepChange) {
-          showStep("stepX");
+          if (state.xConnected) {
+            showStep("stepTasks");
+            updateTotalXP();
+          } else {
+            showStep("stepX");
+          }
         }
       } else {
-        // No accounts connected, clear state if it exists
+        // No accounts connected - don't clear state, just reset UI
         if (state.walletConnected) {
-          console.log("No wallet connected, clearing state");
-          clearStateFromLocalStorage();
+          console.log("No wallet connected");
           state.walletConnected = false;
           state.walletAddress = null;
-          state.xConnected = false;
+          // Don't clear xConnected and totalXP - they're wallet-specific and will be loaded when wallet reconnects
         }
       }
     } catch (error) {
@@ -411,11 +474,34 @@ async function connectWallet() {
     });
 
     if (accounts && accounts.length > 0) {
+      const walletAddress = accounts[0];
       state.walletConnected = true;
-      state.walletAddress = accounts[0];
+      state.walletAddress = walletAddress;
+      
+      // Load state for this wallet address
+      const stateLoaded = loadStateFromLocalStorage(walletAddress);
+      
+      // If no state found, initialize fresh state
+      if (!stateLoaded) {
+        console.log("No saved state found for wallet, starting fresh");
+        state.xConnected = false;
+        state.totalXP = 0;
+        state.tasks.forEach(task => {
+          task.status = "pending";
+          task.opened = false;
+          task.openedAt = null;
+        });
+      }
+      
       saveStateToLocalStorage();
       updateWalletUI();
-      showStep("stepX");
+      
+      if (state.xConnected) {
+        showStep("stepTasks");
+        updateTotalXP();
+      } else {
+        showStep("stepX");
+      }
     }
 
     // Check network
@@ -522,22 +608,35 @@ async function disconnectWallet() {
       }
     }
 
-    // Clear state
+    // Save current state before disconnecting (state is already saved, but ensure it's saved)
+    if (state.walletAddress) {
+      saveStateToLocalStorage();
+    }
+    
+    // Clear local state (but keep in localStorage for when user reconnects)
+    const previousWalletAddress = state.walletAddress;
     state.walletConnected = false;
     state.walletAddress = null;
     state.xConnected = false;
     state.ethereumProvider = null;
     
-    // Clear localStorage
-    clearStateFromLocalStorage();
+    // Don't clear localStorage - keep state for when user reconnects with same wallet
+    // State will be loaded automatically when wallet reconnects
 
     // Update UI
     updateWalletUI();
     showStep("stepWallet");
+    // Reset tasks display (but data is saved in localStorage)
+    state.tasks.forEach(task => {
+      task.status = "pending";
+      task.opened = false;
+      task.openedAt = null;
+    });
+    state.totalXP = 0;
     renderTasks();
   } catch (error) {
     console.error("Error disconnecting wallet:", error);
-    // Even if there's an error, clear the local state
+    // Even if there's an error, clear the local state (but keep in localStorage)
     state.walletConnected = false;
     state.walletAddress = null;
     state.xConnected = false;
