@@ -131,6 +131,8 @@ function initializeApp() {
   document.getElementById("connectXBtn")?.addEventListener("click", connectXAccount);
   document.getElementById("confirmFeeBtn")?.addEventListener("click", confirmFeePayment);
   document.getElementById("cancelFeeBtn")?.addEventListener("click", cancelFeePayment);
+  document.getElementById("confirmXAccountBtn")?.addEventListener("click", confirmXAccountConnection);
+  document.getElementById("cancelXConfirmBtn")?.addEventListener("click", cancelXAccountConnection);
 
   // Load tasks
   renderTasks();
@@ -158,15 +160,18 @@ function checkOAuthCallback() {
       // State matches, proceed
       sessionStorage.removeItem('x_oauth_state');
       
+      // Store OAuth code for later use
+      sessionStorage.setItem('x_oauth_code', code);
+      
       // Clean URL
       window.history.replaceState({}, document.title, window.location.pathname);
       
       // Note: In production, you would exchange the code for an access token via backend
-      // For now, we'll proceed directly to fee payment
+      // and fetch user information from X API
       console.log("X OAuth authorization successful. Code:", code);
       
-      // Proceed with fee payment
-      proceedWithFeePayment();
+      // Fetch and display X account information
+      showXAccountConfirmation(code);
     } else {
       // State mismatch - possible CSRF attack
       alert("Security verification failed. Please try again.");
@@ -529,6 +534,109 @@ function base64UrlEncode(array) {
 }
 
 
+async function showXAccountConfirmation(oauthCode) {
+  // Show X account confirmation modal with user information
+  // Note: In production, you would exchange the code for an access token via backend
+  // and fetch user information from X API (GET /2/users/me)
+  
+  try {
+    // For now, we'll simulate fetching user info
+    // In production, make an API call to your backend to exchange code for token and get user info
+    const userInfo = await fetchXUserInfo(oauthCode);
+    
+    // Display user information in modal
+    const accountInfoEl = document.getElementById("xAccountInfo");
+    if (accountInfoEl) {
+      accountInfoEl.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 15px; padding: 15px; background: #f5f5f5; border-radius: 10px;">
+          <div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold;">
+            ${userInfo.name ? userInfo.name.charAt(0).toUpperCase() : 'X'}
+          </div>
+          <div>
+            <div style="font-weight: 600; font-size: 18px; margin-bottom: 5px;">${userInfo.name || 'X User'}</div>
+            <div style="color: #666; font-size: 14px;">@${userInfo.username || 'username'}</div>
+            ${userInfo.description ? `<div style="color: #888; font-size: 12px; margin-top: 5px;">${userInfo.description}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }
+    
+    // Show modal
+    const modal = document.getElementById("xAccountConfirmModal");
+    if (modal) {
+      modal.style.display = "flex";
+    }
+  } catch (error) {
+    console.error("Error fetching X user info:", error);
+    // Show modal with generic info if API call fails
+    const accountInfoEl = document.getElementById("xAccountInfo");
+    if (accountInfoEl) {
+      accountInfoEl.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 15px; padding: 15px; background: #f5f5f5; border-radius: 10px;">
+          <div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold;">
+            X
+          </div>
+          <div>
+            <div style="font-weight: 600; font-size: 18px; margin-bottom: 5px;">X Account</div>
+            <div style="color: #666; font-size: 14px;">Your X account has been connected</div>
+          </div>
+        </div>
+      `;
+    }
+    const modal = document.getElementById("xAccountConfirmModal");
+    if (modal) {
+      modal.style.display = "flex";
+    }
+  }
+}
+
+async function fetchXUserInfo(oauthCode) {
+  // In production, this would call your backend API to:
+  // 1. Exchange OAuth code for access token
+  // 2. Use access token to fetch user info from X API: GET /2/users/me
+  
+  // For now, simulate user info (you can replace this with actual API call)
+  // Example backend call:
+  // const response = await fetch('/api/x/user-info', {
+  //   method: 'POST',
+  //   headers: { 'Content-Type': 'application/json' },
+  //   body: JSON.stringify({ code: oauthCode })
+  // });
+  // return await response.json();
+  
+  // Simulated user info (replace with actual API call)
+  return {
+    name: "X User",
+    username: "xuser",
+    description: "Connected X account"
+  };
+}
+
+function confirmXAccountConnection() {
+  // User confirmed X account connection, proceed with fee payment
+  const modal = document.getElementById("xAccountConfirmModal");
+  if (modal) {
+    modal.style.display = "none";
+  }
+  
+  // Proceed with fee payment
+  proceedWithFeePayment();
+}
+
+function cancelXAccountConnection() {
+  // User cancelled X account connection
+  const modal = document.getElementById("xAccountConfirmModal");
+  if (modal) {
+    modal.style.display = "none";
+  }
+  
+  // Clean up
+  sessionStorage.removeItem('x_oauth_code');
+  
+  // Stay on X connection step
+  showStep("stepX");
+}
+
 async function proceedWithFeePayment() {
   // Step 2: After X connection is confirmed, proceed with MetaMask fee payment
   try {
@@ -541,6 +649,9 @@ async function proceedWithFeePayment() {
         state.xConnected = true;
         updateXStatus();
         showStep("stepTasks");
+        
+        // Clean up OAuth code
+        sessionStorage.removeItem('x_oauth_code');
       } catch (error) {
         console.error("Error completing X connection:", error);
         alert("Failed to complete X connection. Please try again.");
