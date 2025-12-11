@@ -88,13 +88,14 @@ function loadStateFromLocalStorage() {
       state.xConnected = parsed.xConnected || false;
       state.totalXP = parsed.totalXP || 0;
       
-      // Restore tasks status and opened flag
+      // Restore tasks status, opened flag, and openedAt timestamp
       if (parsed.tasks && Array.isArray(parsed.tasks)) {
         parsed.tasks.forEach(savedTask => {
           const task = state.tasks.find(t => t.id === savedTask.id);
           if (task) {
             task.status = savedTask.status || "pending";
             task.opened = savedTask.opened || false;
+            task.openedAt = savedTask.openedAt || null;
           }
         });
       }
@@ -817,17 +818,72 @@ function renderTasks() {
     const btn = document.getElementById(`task-btn-${task.id}`);
     if (btn) {
       btn.addEventListener("click", () => handleTaskAction(task));
+      
+      // If task was opened but 6 seconds haven't passed, start countdown
+      if (task.opened && task.openedAt) {
+        const timeSinceOpened = Date.now() - task.openedAt;
+        const requiredWaitTime = 6000; // 6 seconds
+        
+        if (timeSinceOpened < requiredWaitTime) {
+          const remainingSeconds = Math.ceil((requiredWaitTime - timeSinceOpened) / 1000);
+          let countdown = remainingSeconds;
+          btn.textContent = `Wait ${countdown}s...`;
+          btn.disabled = true;
+          btn.classList.add('disabled');
+          btn.style.opacity = '0.5';
+          btn.style.cursor = 'not-allowed';
+          
+          const countdownInterval = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+              btn.textContent = `Wait ${countdown}s...`;
+            } else {
+              clearInterval(countdownInterval);
+              btn.textContent = 'Verify & Claim';
+              btn.disabled = false;
+              btn.classList.remove('disabled');
+              btn.style.opacity = '1';
+              btn.style.cursor = 'pointer';
+            }
+          }, 1000);
+        }
+      }
     }
     
-    // Open X button - mark task as opened when clicked
+    // Open X button - mark task as opened when clicked, wait 6 seconds before enabling Verify & Claim
     const openXBtn = document.querySelector(`.open-x-btn[data-task-id="${task.id}"]`);
     if (openXBtn) {
       openXBtn.addEventListener("click", () => {
         // Mark task as opened
         task.opened = true;
+        task.openedAt = Date.now(); // Store timestamp when opened
         saveStateToLocalStorage();
-        // Re-render tasks to enable Verify & Claim button
-        renderTasks();
+        
+        // Show countdown or wait message
+        const verifyBtn = document.getElementById(`task-btn-${task.id}`);
+        if (verifyBtn) {
+          const originalText = 'Verify & Claim';
+          let countdown = 6;
+          verifyBtn.textContent = `Wait ${countdown}s...`;
+          verifyBtn.disabled = true;
+          verifyBtn.classList.add('disabled');
+          verifyBtn.style.opacity = '0.5';
+          verifyBtn.style.cursor = 'not-allowed';
+          
+          const countdownInterval = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+              verifyBtn.textContent = `Wait ${countdown}s...`;
+            } else {
+              clearInterval(countdownInterval);
+              verifyBtn.textContent = originalText;
+              verifyBtn.disabled = false;
+              verifyBtn.classList.remove('disabled');
+              verifyBtn.style.opacity = '1';
+              verifyBtn.style.cursor = 'pointer';
+            }
+          }, 1000);
+        }
       });
     }
   });
@@ -839,17 +895,30 @@ function getTaskButton(task) {
   } else if (task.status === "claimable") {
     return `<button class="btn-primary" id="task-btn-${task.id}">Claim ${task.xp} XP</button>`;
   } else {
-    // Check if task has been opened (user clicked "Open X")
+    // Check if task has been opened and 6 seconds have passed
     const isOpened = task.opened || false;
-    const verifyButtonDisabled = !isOpened ? 'disabled' : '';
-    const verifyButtonClass = !isOpened ? 'btn-primary disabled' : 'btn-primary';
-    const verifyButtonStyle = !isOpened ? 'opacity: 0.5; cursor: not-allowed;' : '';
+    let isReady = false;
+    let waitTime = 0;
+    
+    if (isOpened && task.openedAt) {
+      const timeSinceOpened = Date.now() - task.openedAt;
+      const requiredWaitTime = 6000; // 6 seconds
+      isReady = timeSinceOpened >= requiredWaitTime;
+      if (!isReady) {
+        waitTime = Math.ceil((requiredWaitTime - timeSinceOpened) / 1000);
+      }
+    }
+    
+    const verifyButtonDisabled = !isReady ? 'disabled' : '';
+    const verifyButtonClass = !isReady ? 'btn-primary disabled' : 'btn-primary';
+    const verifyButtonStyle = !isReady ? 'opacity: 0.5; cursor: not-allowed;' : '';
+    const verifyButtonText = !isOpened ? 'Verify & Claim' : (isReady ? 'Verify & Claim' : `Wait ${waitTime}s...`);
     
     return `
       <a href="${task.actionUrl}" target="_blank" class="btn-secondary open-x-btn" data-task-id="${task.id}" style="text-decoration: none; display: inline-block;">
         Open X
       </a>
-      <button class="${verifyButtonClass}" id="task-btn-${task.id}" ${verifyButtonDisabled} style="${verifyButtonStyle}">Verify & Claim</button>
+      <button class="${verifyButtonClass}" id="task-btn-${task.id}" ${verifyButtonDisabled} style="${verifyButtonStyle}">${verifyButtonText}</button>
     `;
   }
 }
@@ -860,33 +929,76 @@ async function handleTaskAction(task) {
     return;
   }
 
-  // Show fee modal
-  showFeeModal(`task_${task.id}`, async () => {
-    try {
-      showLoading(true);
-      
-      // In a real implementation, this would verify the task completion via X API
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      // Update task status
-      task.status = "completed";
-      state.totalXP += task.xp;
-      
-      // Save state to localStorage
-      saveStateToLocalStorage();
-      
-      // Update UI
-      updateTotalXP();
-      renderTasks();
-      showLoading(false);
-      
-      alert(`Task completed! You earned ${task.xp} XP.`);
-    } catch (error) {
-      console.error("Error completing task:", error);
-      showLoading(false);
-      alert("Failed to verify task. Please try again.");
+  if (!state.walletConnected) {
+    alert("Please connect your wallet first.");
+    return;
+  }
+
+  // Check if task was opened and 6 seconds have passed
+  if (!task.opened) {
+    alert("Please click 'Open X' first and wait 6 seconds.");
+    return;
+  }
+
+  const openedAt = task.openedAt || 0;
+  const timeSinceOpened = Date.now() - openedAt;
+  const requiredWaitTime = 6000; // 6 seconds in milliseconds
+
+  if (timeSinceOpened < requiredWaitTime) {
+    const remainingSeconds = Math.ceil((requiredWaitTime - timeSinceOpened) / 1000);
+    alert(`Please wait ${remainingSeconds} more second(s) before verifying.`);
+    return;
+  }
+
+  try {
+    showLoading(true);
+
+    // Directly proceed with fee payment (no fee modal)
+    const feeWei = (parseFloat(CONFIG.FEE_AMOUNT) * 1e18).toString(16);
+
+    // Send transaction directly to MetaMask
+    const txHash = await window.ethereum.request({
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: state.walletAddress,
+          to: CONFIG.TREASURY_WALLET,
+          value: `0x${feeWei}`,
+        },
+      ],
+    });
+
+    // Wait for transaction confirmation
+    await waitForTransaction(txHash);
+
+    // In a real implementation, this would verify the task completion via X API
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    
+    // Update task status
+    task.status = "completed";
+    state.totalXP += task.xp;
+    
+    // Save state to localStorage
+    saveStateToLocalStorage();
+    
+    // Update UI
+    updateTotalXP();
+    renderTasks();
+    showLoading(false);
+    
+    alert(`Task completed! You earned ${task.xp} XP.`);
+  } catch (error) {
+    console.error("Error completing task:", error);
+    showLoading(false);
+    
+    if (error.code === 4001) {
+      // User rejected transaction
+      console.log("User rejected transaction");
+      alert("Transaction was cancelled. Please try again.");
+    } else {
+      alert("Transaction failed. Please try again.");
     }
-  });
+  }
 }
 
 function updateTotalXP() {
