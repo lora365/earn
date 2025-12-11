@@ -139,7 +139,7 @@ body::before {
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text);
-  border-radius: 20px;
+  border-radius: 30px;
   cursor: pointer;
   transition: all 0.3s ease;
 }
@@ -197,6 +197,19 @@ body::before {
 .btn-primary > * {
   position: relative;
   z-index: 2;
+}
+
+.btn-primary.disabled,
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btn-primary.disabled:hover,
+.btn-primary:disabled:hover {
+  transform: none;
+  box-shadow: 0 4px 12px rgba(246, 201, 14, 0.4);
 }
 
 .btn-primary.large {

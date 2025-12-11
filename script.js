@@ -88,12 +88,13 @@ function loadStateFromLocalStorage() {
       state.xConnected = parsed.xConnected || false;
       state.totalXP = parsed.totalXP || 0;
       
-      // Restore tasks status
+      // Restore tasks status and opened flag
       if (parsed.tasks && Array.isArray(parsed.tasks)) {
         parsed.tasks.forEach(savedTask => {
           const task = state.tasks.find(t => t.id === savedTask.id);
           if (task) {
             task.status = savedTask.status || "pending";
+            task.opened = savedTask.opened || false;
           }
         });
       }
@@ -812,9 +813,22 @@ function renderTasks() {
 
   // Add event listeners to task buttons
   state.tasks.forEach((task) => {
+    // Verify & Claim button
     const btn = document.getElementById(`task-btn-${task.id}`);
     if (btn) {
       btn.addEventListener("click", () => handleTaskAction(task));
+    }
+    
+    // Open X button - mark task as opened when clicked
+    const openXBtn = document.querySelector(`.open-x-btn[data-task-id="${task.id}"]`);
+    if (openXBtn) {
+      openXBtn.addEventListener("click", () => {
+        // Mark task as opened
+        task.opened = true;
+        saveStateToLocalStorage();
+        // Re-render tasks to enable Verify & Claim button
+        renderTasks();
+      });
     }
   });
 }
@@ -825,11 +839,17 @@ function getTaskButton(task) {
   } else if (task.status === "claimable") {
     return `<button class="btn-primary" id="task-btn-${task.id}">Claim ${task.xp} XP</button>`;
   } else {
+    // Check if task has been opened (user clicked "Open X")
+    const isOpened = task.opened || false;
+    const verifyButtonDisabled = !isOpened ? 'disabled' : '';
+    const verifyButtonClass = !isOpened ? 'btn-primary disabled' : 'btn-primary';
+    const verifyButtonStyle = !isOpened ? 'opacity: 0.5; cursor: not-allowed;' : '';
+    
     return `
-      <a href="${task.actionUrl}" target="_blank" class="btn-secondary" style="text-decoration: none; display: inline-block;">
+      <a href="${task.actionUrl}" target="_blank" class="btn-secondary open-x-btn" data-task-id="${task.id}" style="text-decoration: none; display: inline-block;">
         Open X
       </a>
-      <button class="btn-primary" id="task-btn-${task.id}">Verify & Claim</button>
+      <button class="${verifyButtonClass}" id="task-btn-${task.id}" ${verifyButtonDisabled} style="${verifyButtonStyle}">Verify & Claim</button>
     `;
   }
 }
