@@ -11,7 +11,7 @@ const CONFIG = {
   // For earn.resilora.xyz, use: "https://earn.resilora.xyz/" (with trailing slash)
   // Or: "https://earn.resilora.xyz" (without trailing slash) - choose one and use consistently
   X_REDIRECT_URI: "https://earn.resilora.xyz/", // Set this to match your Twitter Developer Portal Callback URI exactly
-  X_SCOPE: "tweet.read users.read", // OAuth scopes
+  X_SCOPE: "tweet.read users.read offline.access", // OAuth scopes - Twitter OAuth 2.0 scopes
 };
 
 // State
@@ -457,7 +457,7 @@ async function connectXAccount() {
     // Step 1: Redirect to X OAuth authorization
     // This will show the X authorization page like in the image
     const stateToken = generateStateToken();
-    const authUrl = buildXAuthUrl(stateToken);
+    const authUrl = await buildXAuthUrl(stateToken);
     
     // Debug: Log redirect URI to console
     console.log("Redirect URI being used:", CONFIG.X_REDIRECT_URI);
@@ -476,15 +476,25 @@ async function connectXAccount() {
   }
 }
 
-function buildXAuthUrl(stateToken) {
+async function buildXAuthUrl(stateToken) {
   // Use redirect URI as configured
   // IMPORTANT: This must EXACTLY match the Callback URI in Twitter Developer Portal
+  
+  // Generate PKCE code verifier and challenge (required for Twitter OAuth 2.0)
+  const codeVerifier = generateCodeVerifier();
+  const codeChallenge = await generateCodeChallenge(codeVerifier);
+  
+  // Store code verifier for later use (when exchanging code for token)
+  sessionStorage.setItem('x_oauth_code_verifier', codeVerifier);
+  
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: CONFIG.X_CLIENT_ID,
     redirect_uri: CONFIG.X_REDIRECT_URI,
     scope: CONFIG.X_SCOPE,
     state: stateToken,
+    code_challenge: codeChallenge,
+    code_challenge_method: 'S256',
   });
 
   return `https://twitter.com/i/oauth2/authorize?${params.toString()}`;
@@ -493,6 +503,29 @@ function buildXAuthUrl(stateToken) {
 function generateStateToken() {
   // Generate a random state token for security
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
+function generateCodeVerifier() {
+  // Generate a random code verifier for PKCE (43-128 characters)
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return base64UrlEncode(array);
+}
+
+async function generateCodeChallenge(verifier) {
+  // Generate code challenge by hashing the verifier with SHA256
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return base64UrlEncode(new Uint8Array(digest));
+}
+
+function base64UrlEncode(array) {
+  // Convert Uint8Array to base64url string
+  return btoa(String.fromCharCode(...array))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
 }
 
 
