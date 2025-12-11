@@ -7,8 +7,11 @@ const CONFIG = {
   // Note: You need to create a Twitter App at https://developer.twitter.com/
   // and get your Client ID and set up redirect URI
   X_CLIENT_ID: "VTR6QUFxVEJwYzZySGR1aHFUTlE6MTpjaQ", // X (Twitter) OAuth Client ID
-  X_REDIRECT_URI: window.location.origin + window.location.pathname, // Current page URL
-  X_SCOPE: "tweet.read users.read offline.access", // OAuth scopes
+  // IMPORTANT: This must EXACTLY match the Callback URI in Twitter Developer Portal
+  // For earn.resilora.xyz, use: "https://earn.resilora.xyz/" (with trailing slash)
+  // Or: "https://earn.resilora.xyz" (without trailing slash) - choose one and use consistently
+  X_REDIRECT_URI: "https://earn.resilora.xyz/", // Set this to match your Twitter Developer Portal Callback URI exactly
+  X_SCOPE: "tweet.read users.read", // OAuth scopes
 };
 
 // State
@@ -456,6 +459,10 @@ async function connectXAccount() {
     const stateToken = generateStateToken();
     const authUrl = buildXAuthUrl(stateToken);
     
+    // Debug: Log redirect URI to console
+    console.log("Redirect URI being used:", CONFIG.X_REDIRECT_URI);
+    console.log("Full OAuth URL:", authUrl);
+    
     // Store state token in sessionStorage for verification
     sessionStorage.setItem('x_oauth_state', stateToken);
     
@@ -470,14 +477,14 @@ async function connectXAccount() {
 }
 
 function buildXAuthUrl(stateToken) {
+  // Use redirect URI as configured
+  // IMPORTANT: This must EXACTLY match the Callback URI in Twitter Developer Portal
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: CONFIG.X_CLIENT_ID,
     redirect_uri: CONFIG.X_REDIRECT_URI,
     scope: CONFIG.X_SCOPE,
     state: stateToken,
-    code_challenge: generateCodeChallenge(), // For PKCE (recommended)
-    code_challenge_method: 'plain',
   });
 
   return `https://twitter.com/i/oauth2/authorize?${params.toString()}`;
@@ -485,11 +492,6 @@ function buildXAuthUrl(stateToken) {
 
 function generateStateToken() {
   // Generate a random state token for security
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-}
-
-function generateCodeChallenge() {
-  // Simple code challenge for PKCE (in production, use proper PKCE)
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
 
