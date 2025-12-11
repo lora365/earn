@@ -389,44 +389,96 @@ async function connectXAccount() {
   }
 
   try {
-    showLoading(true);
+    // Step 1: Redirect to X for authentication
+    // Open X in a new window/tab for OAuth
+    const xAuthUrl = "https://twitter.com/i/oauth2/authorize"; // X OAuth URL
+    // For now, we'll use a simple redirect approach
+    // In production, you would use proper OAuth with your app credentials
     
-    // Pay fee directly without showing modal
-    const feeWei = (parseFloat(CONFIG.FEE_AMOUNT) * 1e18).toString(16);
-    
-    // Send transaction
-    const txHash = await window.ethereum.request({
-      method: "eth_sendTransaction",
-      params: [
-        {
-          from: state.walletAddress,
-          to: CONFIG.TREASURY_WALLET,
-          value: `0x${feeWei}`,
-        },
-      ],
-    });
+    // Show confirmation dialog before redirecting
+    const userConfirmed = confirm(
+      "You will be redirected to X (Twitter) to connect your account.\n\n" +
+      "Please:\n" +
+      "1. Log in to your X account\n" +
+      "2. Authorize the connection\n" +
+      "3. Return to this page\n\n" +
+      "Click OK to continue."
+    );
 
-    // Wait for transaction confirmation
-    await waitForTransaction(txHash);
+    if (!userConfirmed) {
+      return;
+    }
+
+    // Open X in new tab/window
+    // Note: In a real implementation, you would use proper OAuth flow
+    // For now, we'll open X and then show a confirmation when user returns
+    window.open("https://x.com/login", "_blank");
     
-    // In a real implementation, this would use X OAuth
-    // For now, we'll simulate it
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    state.xConnected = true;
-    updateXStatus();
-    showStep("stepTasks");
-    showLoading(false);
+    // Show X connection confirmation modal
+    showXConnectionModal();
   } catch (error) {
     console.error("Error connecting X account:", error);
-    showLoading(false);
-    
-    if (error.code === 4001) {
-      // User rejected transaction
-      console.log("User rejected transaction");
-    } else {
-      alert("Failed to connect X account. Please try again.");
-    }
+    alert("Failed to connect X account. Please try again.");
+  }
+}
+
+function showXConnectionModal() {
+  // Create or show X connection confirmation modal
+  let modal = document.getElementById("xConnectionModal");
+  
+  if (!modal) {
+    // Create modal if it doesn't exist
+    modal = document.createElement("div");
+    modal.id = "xConnectionModal";
+    modal.className = "modal";
+    modal.style.display = "flex";
+    modal.innerHTML = `
+      <div class="modal-content">
+        <h3>Connect Your X Account</h3>
+        <p>Have you successfully authorized the connection on X?</p>
+        <p class="modal-note">Please make sure you've logged in and authorized the connection on X, then click "Yes, I've Connected" below.</p>
+        <div class="modal-actions">
+          <button class="btn-secondary" id="cancelXConnectionBtn">Cancel</button>
+          <button class="btn-primary" id="confirmXConnectionBtn">Yes, I've Connected</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Add event listeners
+    document.getElementById("cancelXConnectionBtn").addEventListener("click", () => {
+      modal.style.display = "none";
+    });
+
+    document.getElementById("confirmXConnectionBtn").addEventListener("click", async () => {
+      modal.style.display = "none";
+      await proceedWithFeePayment();
+    });
+  } else {
+    modal.style.display = "flex";
+  }
+}
+
+async function proceedWithFeePayment() {
+  // Step 2: After X connection is confirmed, proceed with MetaMask fee payment
+  try {
+    // Show fee confirmation modal
+    // The fee payment will be handled by confirmFeePayment function
+    // After fee is paid, the callback will be executed
+    showFeeModal("x_connection", async () => {
+      try {
+        // This callback will be executed after fee is paid successfully
+        state.xConnected = true;
+        updateXStatus();
+        showStep("stepTasks");
+      } catch (error) {
+        console.error("Error completing X connection:", error);
+        alert("Failed to complete X connection. Please try again.");
+      }
+    });
+  } catch (error) {
+    console.error("Error in proceedWithFeePayment:", error);
+    alert("Failed to process X connection. Please try again.");
   }
 }
 
