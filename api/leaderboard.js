@@ -51,10 +51,12 @@ module.exports = async (req, res) => {
         .order('xp', { ascending: false });
       
       if (fetchError) {
-        console.error('Supabase fetch error:', fetchError);
+        console.error('❌ Supabase fetch error:', fetchError);
+        console.error('Error details:', JSON.stringify(fetchError, null, 2));
         return res.status(500).json({ 
           success: false, 
-          error: 'Database error' 
+          error: 'Database error: ' + fetchError.message,
+          errorDetails: fetchError
         });
       }
       

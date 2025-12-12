@@ -67,8 +67,13 @@ module.exports = async (req, res) => {
         });
       
       if (upsertError) {
-        console.error('Supabase upsert error:', upsertError);
-        return res.status(500).json({ success: false, error: 'Database error' });
+        console.error('❌ Supabase upsert error:', upsertError);
+        console.error('Error details:', JSON.stringify(upsertError, null, 2));
+        return res.status(500).json({ 
+          success: false, 
+          error: 'Database error: ' + upsertError.message,
+          errorDetails: upsertError
+        });
       }
       
       // Get rank

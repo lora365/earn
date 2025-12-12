@@ -1285,14 +1285,18 @@ function renderLeaderboardFromLocalStorage() {
   wallets.sort((a, b) => b.xp - a.xp);
   const top50 = wallets.slice(0, 50);
   const currentUser = state.walletAddress ? wallets.find(w => 
-    w.address.toLowerCase() === state.walletAddress.toLowerCase()
+    w.address && w.address.toLowerCase() === state.walletAddress.toLowerCase()
   ) : null;
   
-  renderLeaderboard(top50.map((w, i) => ({ ...w, rank: i + 1 })), 
+  renderLeaderboard(top50.map((w, i) => ({ 
+    walletAddress: w.address,
+    xp: w.xp || 0,
+    rank: i + 1 
+  })), 
     currentUser ? { 
       walletAddress: currentUser.address, 
       rank: wallets.indexOf(currentUser) + 1,
-      xp: currentUser.xp
+      xp: currentUser.xp || 0
     } : null);
 }
 
@@ -1315,17 +1319,19 @@ function renderLeaderboard(top50 = [], currentUser = null) {
   
   // Render top 50
   html += top50
+    .filter((user) => user && (user.walletAddress || user.address)) // Filter out invalid entries
     .map((user) => {
-      const rank = user.rank;
-      const isCurrentUser = currentAddress && user.walletAddress.toLowerCase() === currentAddress;
+      const walletAddr = user.walletAddress || user.address || '';
+      const rank = user.rank || 0;
+      const isCurrentUser = currentAddress && walletAddr.toLowerCase() === currentAddress;
       const rankClass = rank <= 3 ? `top-${rank}` : '';
       const entryClass = isCurrentUser ? 'current-user' : '';
       
       return `
         <div class="leaderboard-entry ${entryClass}">
           <span class="leaderboard-rank ${rankClass}">${rank}</span>
-          <span class="leaderboard-wallet">${formatWalletAddress(user.walletAddress)}</span>
-          <span class="leaderboard-xp">${user.xp}</span>
+          <span class="leaderboard-wallet">${formatWalletAddress(walletAddr)}</span>
+          <span class="leaderboard-xp">${user.xp || 0}</span>
         </div>
       `;
     })
