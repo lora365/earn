@@ -76,10 +76,13 @@ function saveStateToLocalStorage() {
       return;
     }
     
+    // Recalculate XP before saving to ensure accuracy
+    state.totalXP = calculateTotalXP();
+    
     const stateToSave = {
       walletAddress: state.walletAddress,
       xConnected: state.xConnected,
-      totalXP: state.totalXP,
+      totalXP: state.totalXP, // This is now calculated, not accumulated
       tasks: state.tasks.map(task => ({
         id: task.id,
         status: task.status,
@@ -90,7 +93,7 @@ function saveStateToLocalStorage() {
     
     const key = getStateKey(state.walletAddress);
     localStorage.setItem(key, JSON.stringify(stateToSave));
-    console.log("State saved for wallet:", state.walletAddress);
+    console.log("State saved for wallet:", state.walletAddress, "Total XP:", state.totalXP);
   } catch (error) {
     console.error("Error saving state to localStorage:", error);
   }
@@ -113,7 +116,6 @@ function loadStateFromLocalStorage(walletAddress) {
       if (parsed.walletAddress && parsed.walletAddress.toLowerCase() === walletAddress.toLowerCase()) {
         // Restore state
         state.xConnected = parsed.xConnected || false;
-        state.totalXP = parsed.totalXP || 0;
         
         // Restore tasks status, opened flag, and openedAt timestamp
         if (parsed.tasks && Array.isArray(parsed.tasks)) {
@@ -126,6 +128,9 @@ function loadStateFromLocalStorage(walletAddress) {
             }
           });
         }
+        
+        // Recalculate XP from completed tasks instead of loading from localStorage
+        state.totalXP = calculateTotalXP();
         
         console.log("State loaded for wallet:", walletAddress);
         return true;
@@ -219,10 +224,11 @@ async function initializeApp() {
   // If state was loaded, restore UI
   if (stateLoaded && state.walletConnected && state.walletAddress) {
     updateWalletUI();
+    // Recalculate XP to ensure accuracy
+    updateTotalXP();
     if (state.xConnected) {
       updateXStatus();
       showStep("stepTasks");
-      updateTotalXP();
     } else {
       showStep("stepX");
     }
@@ -262,8 +268,12 @@ async function initializeApp() {
   document.getElementById("confirmXAccountBtn")?.addEventListener("click", confirmXAccountConnection);
   document.getElementById("cancelXConfirmBtn")?.addEventListener("click", cancelXAccountConnection);
 
-  // Load tasks
+  // Load tasks and ensure XP is correctly calculated
   renderTasks();
+  // Recalculate XP to ensure accuracy on page load
+  if (state.walletConnected && state.walletAddress) {
+    updateTotalXP();
+  }
 }
 
 function checkOAuthCallback() {
@@ -1075,12 +1085,11 @@ async function handleTaskAction(task) {
     
     // Update task status
     task.status = "completed";
-    state.totalXP += task.xp;
     
     // Save state to localStorage
     saveStateToLocalStorage();
     
-    // Update UI
+    // Update UI (this will recalculate XP from completed tasks)
     updateTotalXP();
     renderTasks();
     showLoading(false);
@@ -1098,7 +1107,17 @@ async function handleTaskAction(task) {
   }
 }
 
+// Calculate total XP from completed tasks
+function calculateTotalXP() {
+  return state.tasks
+    .filter(task => task.status === "completed")
+    .reduce((total, task) => total + task.xp, 0);
+}
+
 function updateTotalXP() {
+  // Always recalculate from completed tasks to ensure accuracy
+  state.totalXP = calculateTotalXP();
+  
   const totalXPEl = document.getElementById("totalXP");
   if (totalXPEl) {
     totalXPEl.textContent = state.totalXP;
