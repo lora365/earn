@@ -1,11 +1,4 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
-    }
-  ],
   "routes": [
     {
       "src": "/api/leaderboard",
@@ -16,12 +9,8 @@
       "dest": "/api/user-update.js"
     },
     {
-      "src": "/api/user/rank/(.*)",
-      "dest": "/api/user-rank.js?walletAddress=$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "src": "/api/user/rank",
+      "dest": "/api/user-rank.js"
     }
   ]
 }
