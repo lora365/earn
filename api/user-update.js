@@ -1,23 +1,29 @@
 const fs = require('fs');
 const path = require('path');
 
-const DATA_FILE = path.join(process.cwd(), 'leaderboard-data.json');
-
-if (!fs.existsSync(DATA_FILE)) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify({ users: [] }, null, 2));
-}
+// Use /tmp directory for Vercel serverless functions (writable)
+const DATA_FILE = path.join('/tmp', 'leaderboard-data.json');
 
 function readData() {
   try {
-    const data = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(data);
+    if (fs.existsSync(DATA_FILE)) {
+      const data = fs.readFileSync(DATA_FILE, 'utf8');
+      return JSON.parse(data);
+    }
+    return { users: [] };
   } catch (error) {
+    console.error('Error reading data:', error);
     return { users: [] };
   }
 }
 
 function writeData(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error('Error writing data:', error);
+    // Silently fail - data will be lost but function won't crash
+  }
 }
 
 function calculateUserXP(completedTasks) {

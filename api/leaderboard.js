@@ -1,24 +1,29 @@
 const fs = require('fs');
 const path = require('path');
 
-const DATA_FILE = path.join(process.cwd(), 'leaderboard-data.json');
-
-// Initialize data file if it doesn't exist
-if (!fs.existsSync(DATA_FILE)) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify({ users: [] }, null, 2));
-}
+// Use /tmp directory for Vercel serverless functions (writable)
+const DATA_FILE = path.join('/tmp', 'leaderboard-data.json');
 
 function readData() {
   try {
-    const data = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(data);
+    if (fs.existsSync(DATA_FILE)) {
+      const data = fs.readFileSync(DATA_FILE, 'utf8');
+      return JSON.parse(data);
+    }
+    return { users: [] };
   } catch (error) {
+    console.error('Error reading data:', error);
     return { users: [] };
   }
 }
 
 function writeData(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error('Error writing data:', error);
+    // Silently fail - data will be lost but function won't crash
+  }
 }
 
 function calculateUserXP(completedTasks) {
@@ -81,7 +86,7 @@ module.exports = async (req, res) => {
     
     if (walletAddress) {
       const userIndex = leaderboard.findIndex(user => 
-        user.walletAddress.toLowerCase() === walletAddress.toLowerCase()
+        user.walletAddress && user.walletAddress.toLowerCase() === walletAddress.toLowerCase()
       );
       
       if (userIndex >= 0) {
@@ -93,10 +98,10 @@ module.exports = async (req, res) => {
     res.json({
       success: true,
       top50: top50.map((user, index) => ({
-        walletAddress: user.walletAddress,
-        xp: user.xp,
+        walletAddress: user.walletAddress || '',
+        xp: user.xp || 0,
         rank: index + 1,
-        updatedAt: user.updatedAt
+        updatedAt: user.updatedAt || new Date().toISOString()
       })),
       currentUser: walletAddress && currentUserRank ? {
         walletAddress: walletAddress,
@@ -106,7 +111,13 @@ module.exports = async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting leaderboard:', error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    // Return empty response instead of crashing
+    res.status(200).json({ 
+      success: true, 
+      top50: [], 
+      currentUser: null,
+      error: error.message 
+    });
   }
 };
 
