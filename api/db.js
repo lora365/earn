@@ -11,10 +11,15 @@ let supabase = null;
 
 function getSupabaseClient() {
   if (!supabase && supabaseUrl && supabaseKey) {
-    console.log('✅ Creating Supabase client with URL:', supabaseUrl);
+    console.log('✅ Creating Supabase client');
+    console.log('   URL:', supabaseUrl);
+    console.log('   Key type:', supabaseKey.startsWith('eyJ') ? 'JWT Token' : 'Other');
+    console.log('   Key length:', supabaseKey.length);
     supabase = createClient(supabaseUrl, supabaseKey);
   } else if (!supabaseUrl || !supabaseKey) {
-    console.error('❌ Supabase not configured! URL:', supabaseUrl ? 'OK' : 'MISSING', 'Key:', supabaseKey ? 'OK' : 'MISSING');
+    console.error('❌ Supabase not configured!');
+    console.error('   SUPABASE_URL:', supabaseUrl ? `✅ ${supabaseUrl.substring(0, 30)}...` : '❌ MISSING');
+    console.error('   SUPABASE_KEY:', supabaseKey ? `✅ Present (${supabaseKey.length} chars)` : '❌ MISSING');
   }
   return supabase;
 }

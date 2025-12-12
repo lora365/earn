@@ -64,26 +64,43 @@ module.exports = async (req, res) => {
         updated_at: new Date().toISOString()
       };
       
-      console.log('📝 Upserting data to Supabase:', upsertData);
+      console.log('📝 Upserting data to Supabase:');
+      console.log('   Table: leaderboard_users');
+      console.log('   Data:', JSON.stringify(upsertData, null, 2));
       
-      const { data: userData, error: upsertError } = await supabase
+      const { data: userData, error: upsertError, status, statusText } = await supabase
         .from('leaderboard_users')
         .upsert(upsertData, {
           onConflict: 'wallet_address'
-        });
+        })
+        .select();
+      
+      console.log('📊 Upsert response:');
+      console.log('   Status:', status);
+      console.log('   StatusText:', statusText);
+      console.log('   Data:', userData ? JSON.stringify(userData, null, 2) : 'null');
+      console.log('   Error:', upsertError ? JSON.stringify(upsertError, null, 2) : 'null');
       
       if (userData) {
-        console.log('✅ Upsert successful, returned data:', userData);
+        console.log('✅ Upsert successful! Data saved to Supabase.');
       }
       
       if (upsertError) {
         console.error('❌ Supabase upsert error:', upsertError);
-        console.error('Error details:', JSON.stringify(upsertError, null, 2));
+        console.error('Error code:', upsertError.code);
+        console.error('Error message:', upsertError.message);
+        console.error('Error details:', upsertError.details);
+        console.error('Error hint:', upsertError.hint);
         return res.status(500).json({ 
           success: false, 
           error: 'Database error: ' + upsertError.message,
+          errorCode: upsertError.code,
           errorDetails: upsertError
         });
+      }
+      
+      if (!userData) {
+        console.warn('⚠️ Upsert returned no data (but no error either). Check if data was saved.');
       }
       
       // Get rank
