@@ -4,25 +4,49 @@ const path = require('path');
 // Use /tmp directory for Vercel serverless functions (writable)
 const DATA_FILE = path.join('/tmp', 'leaderboard-data.json');
 
+// In-memory cache for serverless functions (persists across invocations in same instance)
+let memoryCache = null;
+let lastWriteTime = 0;
+
 function readData() {
   try {
+    // Try memory first
+    if (memoryCache) {
+      return memoryCache;
+    }
+    
+    // Try file system
     if (fs.existsSync(DATA_FILE)) {
       const data = fs.readFileSync(DATA_FILE, 'utf8');
-      return JSON.parse(data);
+      memoryCache = JSON.parse(data);
+      return memoryCache;
     }
-    return { users: [] };
+    
+    // Return empty
+    memoryCache = { users: [] };
+    return memoryCache;
   } catch (error) {
     console.error('Error reading data:', error);
-    return { users: [] };
+    if (!memoryCache) {
+      memoryCache = { users: [] };
+    }
+    return memoryCache;
   }
 }
 
 function writeData(data) {
   try {
+    // Update memory cache
+    memoryCache = data;
+    lastWriteTime = Date.now();
+    
+    // Also write to file (for persistence across cold starts)
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
   } catch (error) {
     console.error('Error writing data:', error);
-    // Silently fail - data will be lost but function won't crash
+    // Still update memory even if file write fails
+    memoryCache = data;
+    lastWriteTime = Date.now();
   }
 }
 
@@ -77,7 +101,10 @@ module.exports = async (req, res) => {
 
   try {
     const walletAddress = req.query.walletAddress;
+    const data = readData();
     const leaderboard = getLeaderboard();
+    
+    console.log(`Leaderboard request - Total users: ${leaderboard.length}, Requested wallet: ${walletAddress || 'none'}`);
     
     const top50 = leaderboard.slice(0, 50);
     
@@ -92,6 +119,9 @@ module.exports = async (req, res) => {
       if (userIndex >= 0) {
         currentUserRank = userIndex + 1;
         currentUserXP = leaderboard[userIndex].xp;
+        console.log(`Found user at rank ${currentUserRank} with ${currentUserXP} XP`);
+      } else {
+        console.log(`User not found in leaderboard`);
       }
     }
     

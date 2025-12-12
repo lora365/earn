@@ -4,16 +4,32 @@ const path = require('path');
 // Use /tmp directory for Vercel serverless functions (writable)
 const DATA_FILE = path.join('/tmp', 'leaderboard-data.json');
 
+// In-memory cache for serverless functions (persists across invocations in same instance)
+let memoryCache = null;
+
 function readData() {
   try {
+    // Try memory first
+    if (memoryCache) {
+      return memoryCache;
+    }
+    
+    // Try file system
     if (fs.existsSync(DATA_FILE)) {
       const data = fs.readFileSync(DATA_FILE, 'utf8');
-      return JSON.parse(data);
+      memoryCache = JSON.parse(data);
+      return memoryCache;
     }
-    return { users: [] };
+    
+    // Return empty
+    memoryCache = { users: [] };
+    return memoryCache;
   } catch (error) {
     console.error('Error reading data:', error);
-    return { users: [] };
+    if (!memoryCache) {
+      memoryCache = { users: [] };
+    }
+    return memoryCache;
   }
 }
 
