@@ -1124,13 +1124,18 @@ async function handleTaskAction(task) {
     // Update task status
     task.status = "completed";
     
-    // Save state to localStorage
-    saveStateToLocalStorage();
-    
     // Update UI (this will recalculate XP from completed tasks)
     updateTotalXP();
     renderTasks();
-    // Leaderboard will auto-refresh via interval
+    
+    // Save state to localStorage and update server
+    saveStateToLocalStorage();
+    
+    // Immediately refresh leaderboard after task completion
+    setTimeout(() => {
+      fetchLeaderboard();
+    }, 1000);
+    
     showLoading(false);
   } catch (error) {
     console.error("Error completing task:", error);
@@ -1163,7 +1168,10 @@ function formatWalletAddress(address) {
 
 // Update user XP on server
 async function updateUserOnServer() {
-  if (!state.walletAddress || !state.xConnected) return;
+  if (!state.walletAddress || !state.xConnected) {
+    console.log('Skipping server update - wallet or X not connected');
+    return;
+  }
   
   try {
     const tasksData = state.tasks.map(task => ({
@@ -1171,23 +1179,30 @@ async function updateUserOnServer() {
       status: task.status
     }));
     
+    const requestBody = {
+      walletAddress: state.walletAddress,
+      tasks: tasksData
+    };
+    
+    console.log('Updating user on server:', requestBody);
+    
     const response = await fetch(`${CONFIG.API_URL}/api/user/update`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        walletAddress: state.walletAddress,
-        tasks: tasksData
-      })
+      body: JSON.stringify(requestBody)
     });
     
     if (response.ok) {
       const data = await response.json();
-      console.log('User updated on server:', data);
+      console.log('✅ User successfully updated on server:', data);
+    } else {
+      const errorText = await response.text();
+      console.error('❌ Server update failed:', response.status, errorText);
     }
   } catch (error) {
-    console.error('Error updating user on server:', error);
+    console.error('❌ Error updating user on server:', error);
     // Silently fail - user can still use the app
   }
 }
@@ -1198,19 +1213,27 @@ async function fetchLeaderboard() {
     const walletAddress = state.walletAddress || '';
     const url = `${CONFIG.API_URL}/api/leaderboard${walletAddress ? `?walletAddress=${walletAddress}` : ''}`;
     
+    console.log('Fetching leaderboard from:', url);
+    
     const response = await fetch(url);
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Failed to fetch leaderboard:', response.status, errorText);
       throw new Error('Failed to fetch leaderboard');
     }
     
     const data = await response.json();
+    console.log('✅ Leaderboard data received:', data);
     
     if (data.success) {
       renderLeaderboard(data.top50, data.currentUser);
+    } else {
+      console.warn('⚠️ Leaderboard response indicates failure:', data);
+      renderLeaderboardFromLocalStorage();
     }
   } catch (error) {
-    console.error('Error fetching leaderboard:', error);
+    console.error('❌ Error fetching leaderboard:', error);
     // Fallback to localStorage if API fails
     renderLeaderboardFromLocalStorage();
   }
