@@ -10,14 +10,21 @@ let supabase = null;
 
 function getSupabaseClient() {
   if (!supabase && supabaseUrl && supabaseKey) {
+    console.log('✅ Creating Supabase client with URL:', supabaseUrl);
     supabase = createClient(supabaseUrl, supabaseKey);
+  } else if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Supabase not configured! URL:', supabaseUrl ? 'OK' : 'MISSING', 'Key:', supabaseKey ? 'OK' : 'MISSING');
   }
   return supabase;
 }
 
 // Check if Supabase is configured
 function isSupabaseConfigured() {
-  return !!(supabaseUrl && supabaseKey);
+  const configured = !!(supabaseUrl && supabaseKey);
+  if (!configured) {
+    console.error('❌ Supabase not configured - SUPABASE_URL:', !!supabaseUrl, 'SUPABASE_ANON_KEY:', !!supabaseKey);
+  }
+  return configured;
 }
 
 module.exports = {
