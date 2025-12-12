@@ -852,6 +852,16 @@ body::before {
   background: var(--yellow);
 }
 
+.leaderboard-separator {
+  padding: 16px;
+  text-align: center;
+  color: var(--muted);
+  border-top: 2px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  font-weight: 600;
+  letter-spacing: 2px;
+}
+
 @media (max-width: 768px) {
   .leaderboard-header,
   .leaderboard-entry {

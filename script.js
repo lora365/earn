@@ -12,6 +12,11 @@ const CONFIG = {
   // Or: "https://earn.resilora.xyz" (without trailing slash) - choose one and use consistently
   X_REDIRECT_URI: "https://earn.resilora.xyz/", // Set this to match your Twitter Developer Portal Callback URI exactly
   X_SCOPE: "tweet.read users.read offline.access", // OAuth scopes - Twitter OAuth 2.0 scopes
+  // API Configuration
+  API_URL: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+    ? 'http://localhost:3001' 
+    : window.location.origin, // Vercel'de frontend ve backend aynı domain'de olacak
+  LEADERBOARD_REFRESH_INTERVAL: 30000, // Refresh leaderboard every 30 seconds
 };
 
 // State
@@ -103,6 +108,11 @@ function saveStateToLocalStorage() {
     const key = getStateKey(state.walletAddress);
     localStorage.setItem(key, JSON.stringify(stateToSave));
     console.log("State saved for wallet:", state.walletAddress, "Total XP:", state.totalXP);
+    
+    // Also update on server if X is connected
+    if (state.xConnected) {
+      updateUserOnServer();
+    }
   } catch (error) {
     console.error("Error saving state to localStorage:", error);
   }
@@ -237,10 +247,10 @@ async function initializeApp() {
     updateTotalXP();
     // Render tasks with correct status (completed tasks will show as completed)
     renderTasks();
-    renderLeaderboard();
     if (state.xConnected) {
       updateXStatus();
       showStep("stepTasks");
+      startLeaderboardRefresh();
     } else {
       showStep("stepX");
     }
@@ -282,10 +292,12 @@ async function initializeApp() {
 
   // Load tasks and ensure XP is correctly calculated
   renderTasks();
-  renderLeaderboard();
   // Recalculate XP to ensure accuracy on page load
   if (state.walletConnected && state.walletAddress) {
     updateTotalXP();
+    if (state.xConnected) {
+      startLeaderboardRefresh();
+    }
   }
 }
 
@@ -404,11 +416,11 @@ async function checkWalletConnection(skipStepChange = false) {
         // Recalculate XP and render tasks after loading state
         updateTotalXP();
         renderTasks();
-        renderLeaderboard();
         // Only change step if not skipping (i.e., when called from initializeApp after state load)
         if (!skipStepChange) {
           if (state.xConnected) {
             showStep("stepTasks");
+            startLeaderboardRefresh();
           } else {
             showStep("stepX");
           }
@@ -525,10 +537,10 @@ async function connectWallet() {
       // Recalculate XP and render tasks after loading/connecting
       updateTotalXP();
       renderTasks();
-      renderLeaderboard();
       
       if (state.xConnected) {
         showStep("stepTasks");
+        startLeaderboardRefresh();
       } else {
         showStep("stepX");
       }
@@ -664,7 +676,7 @@ async function disconnectWallet() {
     });
     state.totalXP = 0;
     renderTasks();
-    renderLeaderboard();
+    stopLeaderboardRefresh();
   } catch (error) {
     console.error("Error disconnecting wallet:", error);
     // Even if there's an error, clear the local state (but keep in localStorage)
@@ -675,7 +687,7 @@ async function disconnectWallet() {
     updateWalletUI();
     showStep("stepWallet");
     renderTasks();
-    renderLeaderboard();
+    stopLeaderboardRefresh();
   }
 }
 
@@ -895,6 +907,7 @@ async function proceedWithFeePayment() {
     saveStateToLocalStorage();
     updateXStatus();
     showStep("stepTasks");
+    startLeaderboardRefresh();
     
     // Clean up OAuth code
     sessionStorage.removeItem('x_oauth_code');
@@ -1117,7 +1130,7 @@ async function handleTaskAction(task) {
     // Update UI (this will recalculate XP from completed tasks)
     updateTotalXP();
     renderTasks();
-    renderLeaderboard();
+    // Leaderboard will auto-refresh via interval
     showLoading(false);
   } catch (error) {
     console.error("Error completing task:", error);
@@ -1141,33 +1154,88 @@ function calculateTotalXP() {
 }
 
 // Leaderboard Functions
-function getAllWalletsFromLocalStorage() {
+let leaderboardRefreshInterval = null;
+
+function formatWalletAddress(address) {
+  if (!address || address.length < 10) return address;
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+// Update user XP on server
+async function updateUserOnServer() {
+  if (!state.walletAddress || !state.xConnected) return;
+  
+  try {
+    const tasksData = state.tasks.map(task => ({
+      id: task.id,
+      status: task.status
+    }));
+    
+    const response = await fetch(`${CONFIG.API_URL}/api/user/update`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        walletAddress: state.walletAddress,
+        tasks: tasksData
+      })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('User updated on server:', data);
+    }
+  } catch (error) {
+    console.error('Error updating user on server:', error);
+    // Silently fail - user can still use the app
+  }
+}
+
+// Fetch leaderboard from API
+async function fetchLeaderboard() {
+  try {
+    const walletAddress = state.walletAddress || '';
+    const url = `${CONFIG.API_URL}/api/leaderboard${walletAddress ? `?walletAddress=${walletAddress}` : ''}`;
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch leaderboard');
+    }
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      renderLeaderboard(data.top50, data.currentUser);
+    }
+  } catch (error) {
+    console.error('Error fetching leaderboard:', error);
+    // Fallback to localStorage if API fails
+    renderLeaderboardFromLocalStorage();
+  }
+}
+
+// Fallback: Render from localStorage
+function renderLeaderboardFromLocalStorage() {
   const wallets = [];
   try {
-    // Get all keys from localStorage
     const keys = Object.keys(localStorage);
-    
-    // Filter keys that match our state pattern
     keys.forEach(key => {
       if (key.startsWith('earn_app_state_')) {
         try {
           const savedState = JSON.parse(localStorage.getItem(key));
           if (savedState && savedState.walletAddress) {
-            // Calculate XP from saved tasks
             const walletTasks = savedState.tasks || [];
             let walletXP = 0;
-            
-            // Count completed tasks
             walletTasks.forEach(savedTask => {
               if (savedTask.status === "completed") {
-                // Find the task in our state to get XP value
                 const task = state.tasks.find(t => t.id === savedTask.id);
                 if (task) {
                   walletXP += task.xp;
                 }
               }
             });
-            
             wallets.push({
               address: savedState.walletAddress,
               xp: walletXP
@@ -1182,26 +1250,26 @@ function getAllWalletsFromLocalStorage() {
     console.error("Error reading localStorage:", error);
   }
   
-  return wallets;
+  wallets.sort((a, b) => b.xp - a.xp);
+  const top50 = wallets.slice(0, 50);
+  const currentUser = state.walletAddress ? wallets.find(w => 
+    w.address.toLowerCase() === state.walletAddress.toLowerCase()
+  ) : null;
+  
+  renderLeaderboard(top50.map((w, i) => ({ ...w, rank: i + 1 })), 
+    currentUser ? { 
+      walletAddress: currentUser.address, 
+      rank: wallets.indexOf(currentUser) + 1,
+      xp: currentUser.xp
+    } : null);
 }
 
-function formatWalletAddress(address) {
-  if (!address || address.length < 10) return address;
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
-
-function renderLeaderboard() {
+// Render leaderboard with API data
+function renderLeaderboard(top50 = [], currentUser = null) {
   const leaderboardList = document.getElementById("leaderboardList");
   if (!leaderboardList) return;
   
-  // Get all wallets and their XP
-  const wallets = getAllWalletsFromLocalStorage();
-  
-  // Sort by XP (descending)
-  wallets.sort((a, b) => b.xp - a.xp);
-  
-  // Render leaderboard
-  if (wallets.length === 0) {
+  if (top50.length === 0) {
     leaderboardList.innerHTML = `
       <div style="padding: 32px; text-align: center; color: var(--muted);">
         No users found. Complete tasks to appear on the leaderboard!
@@ -1211,23 +1279,65 @@ function renderLeaderboard() {
   }
   
   const currentAddress = state.walletAddress?.toLowerCase();
+  let html = '';
   
-  leaderboardList.innerHTML = wallets
-    .map((wallet, index) => {
-      const rank = index + 1;
-      const isCurrentUser = currentAddress && wallet.address.toLowerCase() === currentAddress;
+  // Render top 50
+  html += top50
+    .map((user) => {
+      const rank = user.rank;
+      const isCurrentUser = currentAddress && user.walletAddress.toLowerCase() === currentAddress;
       const rankClass = rank <= 3 ? `top-${rank}` : '';
       const entryClass = isCurrentUser ? 'current-user' : '';
       
       return `
         <div class="leaderboard-entry ${entryClass}">
           <span class="leaderboard-rank ${rankClass}">${rank}</span>
-          <span class="leaderboard-wallet">${formatWalletAddress(wallet.address)}</span>
-          <span class="leaderboard-xp">${wallet.xp}</span>
+          <span class="leaderboard-wallet">${formatWalletAddress(user.walletAddress)}</span>
+          <span class="leaderboard-xp">${user.xp}</span>
         </div>
       `;
     })
     .join("");
+  
+  // Show current user rank if not in top 50
+  if (currentUser && currentUser.rank > 50) {
+    html += `
+      <div class="leaderboard-separator" style="padding: 16px; text-align: center; color: var(--muted); border-top: 2px solid var(--border); border-bottom: 2px solid var(--border);">
+        ...
+      </div>
+      <div class="leaderboard-entry current-user">
+        <span class="leaderboard-rank">${currentUser.rank}</span>
+        <span class="leaderboard-wallet">${formatWalletAddress(currentUser.walletAddress)} (You)</span>
+        <span class="leaderboard-xp">${currentUser.xp}</span>
+      </div>
+    `;
+  }
+  
+  leaderboardList.innerHTML = html;
+}
+
+// Start leaderboard auto-refresh
+function startLeaderboardRefresh() {
+  // Clear existing interval
+  if (leaderboardRefreshInterval) {
+    clearInterval(leaderboardRefreshInterval);
+  }
+  
+  // Initial fetch
+  fetchLeaderboard();
+  
+  // Set up auto-refresh
+  leaderboardRefreshInterval = setInterval(() => {
+    fetchLeaderboard();
+  }, CONFIG.LEADERBOARD_REFRESH_INTERVAL);
+}
+
+// Stop leaderboard auto-refresh
+function stopLeaderboardRefresh() {
+  if (leaderboardRefreshInterval) {
+    clearInterval(leaderboardRefreshInterval);
+    leaderboardRefreshInterval = null;
+  }
 }
 
 function updateTotalXP() {
