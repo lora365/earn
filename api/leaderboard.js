@@ -2,11 +2,13 @@ const { getSupabaseClient, isSupabaseConfigured } = require('./db');
 
 function calculateUserXP(completedTasks) {
   const taskXP = {
-    1: 100,
-    2: 150,
-    3: 75,
-    4: 200,
-    5: 200
+    1: 100, // Follow Resilora on X
+    2: 150, // Retweet Latest Post
+    3: 75,  // Like 3 Posts
+    4: 200, // Share Project Update
+    5: 200, // Join Resilora Telegram
+    6: 10,  // Test Task (QA)
+    7: 50   // Visit Resilora Website
   };
   
   let totalXP = 0;

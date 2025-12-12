@@ -81,6 +81,15 @@ let state = {
       action: "test",
       actionUrl: "#",
     },
+    {
+      id: 7,
+      title: "Visit Resilora Website",
+      description: "Visit the official Resilora website to learn more about the project and ecosystem.",
+      xp: 50,
+      status: "pending",
+      action: "visit",
+      actionUrl: "https://resilora.xyz",
+    },
   ],
 };
 
