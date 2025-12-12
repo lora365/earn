@@ -711,3 +711,174 @@ body::before {
   }
 }
 
+/* Leaderboard Styles */
+.leaderboard-section {
+  margin-top: 48px;
+  padding: 24px;
+  background: var(--card);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeInUp 0.6s ease 0.4s forwards;
+}
+
+.leaderboard-section h2 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 28px;
+  color: var(--text);
+  margin-bottom: 24px;
+}
+
+.leaderboard-container {
+  background: var(--bg-alt);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.leaderboard-header {
+  display: grid;
+  grid-template-columns: 80px 1fr 120px;
+  gap: 16px;
+  padding: 16px 24px;
+  background: rgba(246, 201, 14, 0.1);
+  border-bottom: 2px solid var(--yellow);
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--yellow);
+}
+
+.leaderboard-list {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.leaderboard-entry {
+  display: grid;
+  grid-template-columns: 80px 1fr 120px;
+  gap: 16px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  transition: all 0.2s ease;
+  align-items: center;
+}
+
+.leaderboard-entry:hover {
+  background: rgba(246, 201, 14, 0.05);
+  border-color: var(--yellow);
+}
+
+.leaderboard-entry:last-child {
+  border-bottom: none;
+}
+
+.leaderboard-entry.current-user {
+  background: rgba(246, 201, 14, 0.15);
+  border-left: 3px solid var(--yellow);
+}
+
+.leaderboard-rank {
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.leaderboard-rank.top-3 {
+  color: var(--yellow);
+  font-size: 20px;
+}
+
+.leaderboard-rank.top-1::after {
+  content: "🥇";
+  margin-left: 4px;
+}
+
+.leaderboard-rank.top-2::after {
+  content: "🥈";
+  margin-left: 4px;
+}
+
+.leaderboard-rank.top-3::after {
+  content: "🥉";
+  margin-left: 4px;
+}
+
+.leaderboard-wallet {
+  font-family: "Space Grotesk", monospace;
+  font-size: 14px;
+  color: var(--text);
+  word-break: break-all;
+}
+
+.leaderboard-xp {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--yellow);
+  text-align: right;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.leaderboard-xp::after {
+  content: "XP";
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.leaderboard-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.leaderboard-list::-webkit-scrollbar-track {
+  background: var(--bg-alt);
+}
+
+.leaderboard-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.leaderboard-list::-webkit-scrollbar-thumb:hover {
+  background: var(--yellow);
+}
+
+@media (max-width: 768px) {
+  .leaderboard-header,
+  .leaderboard-entry {
+    grid-template-columns: 60px 1fr 100px;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .leaderboard-section {
+    margin-top: 32px;
+    padding: 16px;
+  }
+
+  .leaderboard-section h2 {
+    font-size: 24px;
+  }
+
+  .leaderboard-rank {
+    font-size: 16px;
+  }
+
+  .leaderboard-wallet {
+    font-size: 12px;
+  }
+
+  .leaderboard-xp {
+    font-size: 14px;
+  }
+}
+

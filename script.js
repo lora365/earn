@@ -237,6 +237,7 @@ async function initializeApp() {
     updateTotalXP();
     // Render tasks with correct status (completed tasks will show as completed)
     renderTasks();
+    renderLeaderboard();
     if (state.xConnected) {
       updateXStatus();
       showStep("stepTasks");
@@ -281,6 +282,7 @@ async function initializeApp() {
 
   // Load tasks and ensure XP is correctly calculated
   renderTasks();
+  renderLeaderboard();
   // Recalculate XP to ensure accuracy on page load
   if (state.walletConnected && state.walletAddress) {
     updateTotalXP();
@@ -402,6 +404,7 @@ async function checkWalletConnection(skipStepChange = false) {
         // Recalculate XP and render tasks after loading state
         updateTotalXP();
         renderTasks();
+        renderLeaderboard();
         // Only change step if not skipping (i.e., when called from initializeApp after state load)
         if (!skipStepChange) {
           if (state.xConnected) {
@@ -522,6 +525,7 @@ async function connectWallet() {
       // Recalculate XP and render tasks after loading/connecting
       updateTotalXP();
       renderTasks();
+      renderLeaderboard();
       
       if (state.xConnected) {
         showStep("stepTasks");
@@ -660,6 +664,7 @@ async function disconnectWallet() {
     });
     state.totalXP = 0;
     renderTasks();
+    renderLeaderboard();
   } catch (error) {
     console.error("Error disconnecting wallet:", error);
     // Even if there's an error, clear the local state (but keep in localStorage)
@@ -670,6 +675,7 @@ async function disconnectWallet() {
     updateWalletUI();
     showStep("stepWallet");
     renderTasks();
+    renderLeaderboard();
   }
 }
 
@@ -1111,6 +1117,7 @@ async function handleTaskAction(task) {
     // Update UI (this will recalculate XP from completed tasks)
     updateTotalXP();
     renderTasks();
+    renderLeaderboard();
     showLoading(false);
   } catch (error) {
     console.error("Error completing task:", error);
@@ -1131,6 +1138,96 @@ function calculateTotalXP() {
   return state.tasks
     .filter(task => task.status === "completed")
     .reduce((total, task) => total + task.xp, 0);
+}
+
+// Leaderboard Functions
+function getAllWalletsFromLocalStorage() {
+  const wallets = [];
+  try {
+    // Get all keys from localStorage
+    const keys = Object.keys(localStorage);
+    
+    // Filter keys that match our state pattern
+    keys.forEach(key => {
+      if (key.startsWith('earn_app_state_')) {
+        try {
+          const savedState = JSON.parse(localStorage.getItem(key));
+          if (savedState && savedState.walletAddress) {
+            // Calculate XP from saved tasks
+            const walletTasks = savedState.tasks || [];
+            let walletXP = 0;
+            
+            // Count completed tasks
+            walletTasks.forEach(savedTask => {
+              if (savedTask.status === "completed") {
+                // Find the task in our state to get XP value
+                const task = state.tasks.find(t => t.id === savedTask.id);
+                if (task) {
+                  walletXP += task.xp;
+                }
+              }
+            });
+            
+            wallets.push({
+              address: savedState.walletAddress,
+              xp: walletXP
+            });
+          }
+        } catch (error) {
+          console.error("Error parsing wallet state:", error);
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Error reading localStorage:", error);
+  }
+  
+  return wallets;
+}
+
+function formatWalletAddress(address) {
+  if (!address || address.length < 10) return address;
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function renderLeaderboard() {
+  const leaderboardList = document.getElementById("leaderboardList");
+  if (!leaderboardList) return;
+  
+  // Get all wallets and their XP
+  const wallets = getAllWalletsFromLocalStorage();
+  
+  // Sort by XP (descending)
+  wallets.sort((a, b) => b.xp - a.xp);
+  
+  // Render leaderboard
+  if (wallets.length === 0) {
+    leaderboardList.innerHTML = `
+      <div style="padding: 32px; text-align: center; color: var(--muted);">
+        No users found. Complete tasks to appear on the leaderboard!
+      </div>
+    `;
+    return;
+  }
+  
+  const currentAddress = state.walletAddress?.toLowerCase();
+  
+  leaderboardList.innerHTML = wallets
+    .map((wallet, index) => {
+      const rank = index + 1;
+      const isCurrentUser = currentAddress && wallet.address.toLowerCase() === currentAddress;
+      const rankClass = rank <= 3 ? `top-${rank}` : '';
+      const entryClass = isCurrentUser ? 'current-user' : '';
+      
+      return `
+        <div class="leaderboard-entry ${entryClass}">
+          <span class="leaderboard-rank ${rankClass}">${rank}</span>
+          <span class="leaderboard-wallet">${formatWalletAddress(wallet.address)}</span>
+          <span class="leaderboard-xp">${wallet.xp}</span>
+        </div>
+      `;
+    })
+    .join("");
 }
 
 function updateTotalXP() {
