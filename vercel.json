@@ -4,16 +4,20 @@
     {
       "src": "api/**/*.js",
       "use": "@vercel/node"
-    },
-    {
-      "src": "server.js",
-      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1.js"
+      "src": "/api/leaderboard",
+      "dest": "/api/leaderboard.js"
+    },
+    {
+      "src": "/api/user/update",
+      "dest": "/api/user-update.js"
+    },
+    {
+      "src": "/api/user/rank/(.*)",
+      "dest": "/api/user-rank.js?walletAddress=$1"
     },
     {
       "src": "/(.*)",
