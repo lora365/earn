@@ -11,6 +11,10 @@
     {
       "src": "/api/user/rank",
       "dest": "/api/user-rank.js"
+    },
+    {
+      "src": "/api/test-supabase",
+      "dest": "/api/test-supabase.js"
     }
   ]
 }
