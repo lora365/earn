@@ -226,6 +226,8 @@ async function initializeApp() {
     updateWalletUI();
     // Recalculate XP to ensure accuracy
     updateTotalXP();
+    // Render tasks with correct status (completed tasks will show as completed)
+    renderTasks();
     if (state.xConnected) {
       updateXStatus();
       showStep("stepTasks");
@@ -388,11 +390,13 @@ async function checkWalletConnection(skipStepChange = false) {
         }
         
         updateWalletUI();
+        // Recalculate XP and render tasks after loading state
+        updateTotalXP();
+        renderTasks();
         // Only change step if not skipping (i.e., when called from initializeApp after state load)
         if (!skipStepChange) {
           if (state.xConnected) {
             showStep("stepTasks");
-            updateTotalXP();
           } else {
             showStep("stepX");
           }
@@ -506,9 +510,12 @@ async function connectWallet() {
       saveStateToLocalStorage();
       updateWalletUI();
       
+      // Recalculate XP and render tasks after loading/connecting
+      updateTotalXP();
+      renderTasks();
+      
       if (state.xConnected) {
         showStep("stepTasks");
-        updateTotalXP();
       } else {
         showStep("stepX");
       }
