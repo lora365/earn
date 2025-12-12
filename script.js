@@ -58,6 +58,15 @@ let state = {
       action: "share",
       actionUrl: "https://twitter.com/intent/tweet?text=@resilora_xyz%20",
     },
+    {
+      id: 5,
+      title: "Join Resilora Telegram",
+      description: "Join the official Resilora Telegram channel to stay updated with the latest news and announcements.",
+      xp: 200,
+      status: "pending",
+      action: "telegram",
+      actionUrl: "https://t.me/resilora_official",
+    },
   ],
 };
 
