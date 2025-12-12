@@ -1,50 +1,4 @@
-const fs = require('fs');
-const path = require('path');
-
-// Use /tmp directory for Vercel serverless functions (writable)
-const DATA_FILE = path.join('/tmp', 'leaderboard-data.json');
-
-// In-memory cache for serverless functions (persists across invocations in same instance)
-let memoryCache = null;
-
-function readData() {
-  try {
-    // Try memory first
-    if (memoryCache) {
-      return memoryCache;
-    }
-    
-    // Try file system
-    if (fs.existsSync(DATA_FILE)) {
-      const data = fs.readFileSync(DATA_FILE, 'utf8');
-      memoryCache = JSON.parse(data);
-      return memoryCache;
-    }
-    
-    // Return empty
-    memoryCache = { users: [] };
-    return memoryCache;
-  } catch (error) {
-    console.error('Error reading data:', error);
-    if (!memoryCache) {
-      memoryCache = { users: [] };
-    }
-    return memoryCache;
-  }
-}
-
-function getLeaderboard() {
-  const data = readData();
-  return [...data.users].sort((a, b) => b.xp - a.xp);
-}
-
-function getUserRank(walletAddress) {
-  const leaderboard = getLeaderboard();
-  const index = leaderboard.findIndex(user => 
-    user.walletAddress.toLowerCase() === walletAddress.toLowerCase()
-  );
-  return index >= 0 ? index + 1 : null;
-}
+const { getSupabaseClient, isSupabaseConfigured } = require('./db');
 
 module.exports = async (req, res) => {
   // CORS headers
@@ -68,25 +22,43 @@ module.exports = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Wallet address is required' });
     }
     
-    const rank = getUserRank(walletAddress);
-    const data = readData();
-    const user = data.users.find(u => 
-      u.walletAddress.toLowerCase() === walletAddress.toLowerCase()
-    );
-    
-    if (user) {
-      res.json({
-        success: true,
-        rank: rank,
-        xp: user.xp,
-        walletAddress: walletAddress
-      });
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseClient();
+      
+      // Get all users ordered by XP
+      const { data: allUsers, error: fetchError } = await supabase
+        .from('leaderboard_users')
+        .select('wallet_address, xp')
+        .order('xp', { ascending: false });
+      
+      if (fetchError) {
+        return res.status(500).json({ success: false, error: 'Database error' });
+      }
+      
+      const leaderboard = allUsers || [];
+      const userIndex = leaderboard.findIndex(u => 
+        u.wallet_address.toLowerCase() === walletAddress.toLowerCase()
+      );
+      
+      if (userIndex >= 0) {
+        return res.json({
+          success: true,
+          rank: userIndex + 1,
+          xp: leaderboard[userIndex].xp,
+          walletAddress: walletAddress
+        });
+      } else {
+        return res.json({
+          success: true,
+          rank: null,
+          xp: 0,
+          walletAddress: walletAddress
+        });
+      }
     } else {
-      res.json({
-        success: true,
-        rank: null,
-        xp: 0,
-        walletAddress: walletAddress
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Supabase not configured' 
       });
     }
   } catch (error) {
