@@ -57,16 +57,24 @@ module.exports = async (req, res) => {
       const supabase = getSupabaseClient();
       
       // Upsert user data
+      const upsertData = {
+        wallet_address: walletAddress.toLowerCase(),
+        xp: xp,
+        tasks: tasks || [],
+        updated_at: new Date().toISOString()
+      };
+      
+      console.log('📝 Upserting data to Supabase:', upsertData);
+      
       const { data: userData, error: upsertError } = await supabase
         .from('leaderboard_users')
-        .upsert({
-          wallet_address: walletAddress.toLowerCase(),
-          xp: xp,
-          tasks: tasks || [],
-          updated_at: new Date().toISOString()
-        }, {
+        .upsert(upsertData, {
           onConflict: 'wallet_address'
         });
+      
+      if (userData) {
+        console.log('✅ Upsert successful, returned data:', userData);
+      }
       
       if (upsertError) {
         console.error('❌ Supabase upsert error:', upsertError);
