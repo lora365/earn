@@ -72,6 +72,15 @@ let state = {
       action: "telegram",
       actionUrl: "https://t.me/resilora_official",
     },
+    {
+      id: 6,
+      title: "Test Task (QA)",
+      description: "Complete this test task to validate leaderboard updates.",
+      xp: 10,
+      status: "pending",
+      action: "test",
+      actionUrl: "#",
+    },
   ],
 };
 
