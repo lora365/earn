@@ -1039,9 +1039,12 @@ function getTaskButton(task) {
     const verifyButtonStyle = !isReady ? 'opacity: 0.5; cursor: not-allowed;' : '';
     const verifyButtonText = !isOpened ? 'Verify & Claim' : (isReady ? 'Verify & Claim' : `Wait ${waitTime}s...`);
     
+    // Determine button text based on task action type
+    const openButtonText = task.action === "telegram" ? "Open" : "Open X";
+    
     return `
       <a href="${task.actionUrl}" target="_blank" class="btn-secondary open-x-btn" data-task-id="${task.id}" style="text-decoration: none; display: inline-block;">
-        Open X
+        ${openButtonText}
       </a>
       <button class="${verifyButtonClass}" id="task-btn-${task.id}" ${verifyButtonDisabled} style="${verifyButtonStyle}">${verifyButtonText}</button>
     `;
