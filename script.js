@@ -52,11 +52,11 @@ let state = {
     {
       id: 4,
       title: "Share Project Update",
-      description: "Share a post about Resilora on your X timeline with your thoughts.",
+      description: "Share a tweet about Resilora with your thoughts.",
       xp: 200,
       status: "pending",
       action: "share",
-      actionUrl: "https://x.com/resilora_xyz",
+      actionUrl: "https://twitter.com/intent/tweet?text=@resilora_xyz%20",
     },
   ],
 };
