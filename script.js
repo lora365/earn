@@ -336,6 +336,19 @@ async function initializeApp() {
   document.getElementById("confirmXAccountBtn")?.addEventListener("click", confirmXAccountConnection);
   document.getElementById("cancelXConfirmBtn")?.addEventListener("click", cancelXAccountConnection);
 
+  // Handle browser back/forward buttons
+  window.addEventListener("popstate", (event) => {
+    // Prevent errors when navigating back
+    // Always ensure we're on the correct step based on wallet connection state
+    if (!state.walletConnected || !state.walletAddress) {
+      showStep("stepWallet");
+    } else if (state.xConnected) {
+      showStep("stepTasks");
+    } else {
+      showStep("stepX");
+    }
+  });
+
   // Load tasks and ensure XP is correctly calculated
   renderTasks();
   // Recalculate XP to ensure accuracy on page load
@@ -747,6 +760,7 @@ function updateWalletUI() {
 
     const walletInfo = document.getElementById("walletInfo");
     const walletAddress = document.getElementById("walletAddress");
+    const navLinks = document.querySelector(".nav-links");
 
     if (!walletInfo || !walletAddress) {
       // Elements not found, try again after a short delay
@@ -760,9 +774,17 @@ function updateWalletUI() {
         walletInfo.style.display = "flex";
         walletAddress.textContent = `${state.walletAddress.slice(0, 6)}...${state.walletAddress.slice(-4)}`;
       }
+      // Show nav links when wallet is connected
+      if (navLinks) {
+        navLinks.style.display = "flex";
+      }
     } else {
       if (walletInfo) {
         walletInfo.style.display = "none";
+      }
+      // Hide nav links when wallet is disconnected
+      if (navLinks) {
+        navLinks.style.display = "none";
       }
     }
   } catch (error) {
@@ -1766,6 +1788,11 @@ async function waitForTransaction(txHash) {
 
 // UI Helper Functions
 function showStep(stepId) {
+  // Prevent navigation to tasks/leaderboard if wallet is not connected
+  if ((stepId === "stepTasks" || stepId === "stepX") && (!state.walletConnected || !state.walletAddress)) {
+    stepId = "stepWallet";
+  }
+  
   const sections = document.querySelectorAll(".step-section");
   if (sections) {
     sections.forEach((section) => {
