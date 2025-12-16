@@ -555,7 +555,13 @@ body::before {
   box-shadow: 0 8px 32px rgba(246, 201, 14, 0.2);
 }
 
-.task-card-featured::before {
+/* Available state - yellow border (ready to claim) */
+.task-card-featured.available {
+  border-color: var(--yellow);
+  box-shadow: 0 8px 32px rgba(246, 201, 14, 0.2);
+}
+
+.task-card-featured.available::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -565,14 +571,32 @@ body::before {
   pointer-events: none;
 }
 
-.task-card-featured:hover {
+.task-card-featured.available:hover {
   border-color: var(--yellow-strong);
   box-shadow: 0 12px 40px rgba(246, 201, 14, 0.4);
   transform: translateY(-6px);
 }
 
-.task-card-featured:hover::before {
+/* Claimed state - green border (on cooldown) */
+.task-card-featured.claimed {
+  border-color: var(--success);
+  box-shadow: 0 8px 32px rgba(40, 167, 69, 0.2);
+}
+
+.task-card-featured.claimed::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 0%, rgba(40, 167, 69, 0.15), transparent 60%);
   opacity: 1;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.task-card-featured.claimed:hover {
+  border-color: #34ce57;
+  box-shadow: 0 12px 40px rgba(40, 167, 69, 0.4);
+  transform: translateY(-6px);
 }
 
 .task-card-featured .task-header {

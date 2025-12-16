@@ -1,13 +1,12 @@
 const { getSupabaseClient, isSupabaseConfigured } = require('./db');
 
-function calculateUserXP(completedTasks) {
+function calculateUserXP(completedTasks, timeBasedTotalXP = 0) {
   const taskXP = {
     1: 100, // Follow Resilora on X
     2: 150, // Retweet Latest Post
     3: 75,  // Like 3 Posts
     4: 200, // Share Project Update
     5: 200, // Join Resilora Telegram
-    6: 10,  // Test Task (QA)
     7: 50   // Visit Resilora Website
   };
   
@@ -19,6 +18,9 @@ function calculateUserXP(completedTasks) {
       }
     });
   }
+  
+  // Add time-based XP
+  totalXP += timeBasedTotalXP || 0;
   
   return totalXP;
 }
@@ -44,13 +46,13 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { walletAddress, tasks } = req.body;
+    const { walletAddress, tasks, timeBasedTotalXP } = req.body;
     
     if (!walletAddress) {
       return res.status(400).json({ success: false, error: 'Wallet address is required' });
     }
     
-    const xp = calculateUserXP(tasks);
+    const xp = calculateUserXP(tasks, timeBasedTotalXP || 0);
     
     // Use Supabase if configured, otherwise fallback to file system
     if (isSupabaseConfigured()) {

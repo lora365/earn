@@ -195,9 +195,83 @@ app.get('/api/user/rank/:walletAddress', (req, res) => {
   }
 });
 
+// GET /api/timestamp - Get server timestamp (for time-based claim validation)
+app.get('/api/timestamp', (req, res) => {
+  try {
+    const serverTime = Date.now();
+    res.json({
+      success: true,
+      timestamp: serverTime,
+      iso: new Date(serverTime).toISOString()
+    });
+  } catch (error) {
+    console.error('Error getting timestamp:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// POST /api/time-based-claim - Validate and record time-based claim
+app.post('/api/time-based-claim', (req, res) => {
+  try {
+    const { walletAddress, lastClaimTime, nextClaimTime } = req.body;
+    
+    if (!walletAddress) {
+      return res.status(400).json({ success: false, error: 'Wallet address is required' });
+    }
+    
+    const serverTime = Date.now();
+    
+    // Validate that enough time has passed since last claim
+    if (lastClaimTime && nextClaimTime) {
+      // Check if client's nextClaimTime is in the past (allowing for small clock differences)
+      const timeDifference = serverTime - nextClaimTime;
+      const allowedDifference = 5 * 60 * 1000; // Allow 5 minutes difference for clock drift
+      
+      if (timeDifference < -allowedDifference) {
+        // Client's time is too far ahead - possible manipulation
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Invalid claim time. Please check your system clock.',
+          serverTime: serverTime,
+          clientNextClaimTime: nextClaimTime,
+          timeDifference: timeDifference
+        });
+      }
+      
+      // Check if enough time has passed
+      if (serverTime < nextClaimTime) {
+        const remainingTime = nextClaimTime - serverTime;
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Claim cooldown not expired yet',
+          remainingTime: remainingTime,
+          serverTime: serverTime,
+          nextClaimTime: nextClaimTime
+        });
+      }
+    }
+    
+    // Claim is valid - return server timestamp for next claim
+    const newNextClaimTime = serverTime + (12 * 60 * 60 * 1000); // 12 hours from now
+    
+    res.json({
+      success: true,
+      serverTime: serverTime,
+      lastClaimTime: serverTime,
+      nextClaimTime: newNextClaimTime,
+      message: 'Claim validated successfully'
+    });
+  } catch (error) {
+    console.error('Error validating time-based claim:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Resilora Earn API server running on port ${PORT}`);
   console.log(`Leaderboard data file: ${DATA_FILE}`);
 });
+
+
 

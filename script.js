@@ -127,6 +127,7 @@ function saveStateToLocalStorage() {
         openedAt: task.openedAt || null,
         lastClaimTime: task.lastClaimTime || null,
         nextClaimTime: task.nextClaimTime || null,
+        serverTimeOffset: task.serverTimeOffset || null,
       })),
     };
     
@@ -173,6 +174,7 @@ function loadStateFromLocalStorage(walletAddress) {
               if (task.isTimeBased) {
                 task.lastClaimTime = savedTask.lastClaimTime || null;
                 task.nextClaimTime = savedTask.nextClaimTime || null;
+                task.serverTimeOffset = savedTask.serverTimeOffset || null;
               }
             }
           });
@@ -991,9 +993,14 @@ function renderTasks() {
 
   // Render time-based task separately (featured, larger)
   if (timeBasedTask && timeBasedContainer) {
-    const statusClass = timeBasedTask.status === "completed" ? "completed" : "";
+    // Determine border color based on claim status
+    const now = Date.now();
+    const nextClaimTime = timeBasedTask.nextClaimTime || 0;
+    const isOnCooldown = now < nextClaimTime;
+    const borderClass = isOnCooldown ? 'claimed' : 'available'; // claimed = green, available = yellow
+    
     timeBasedContainer.innerHTML = `
-      <div class="task-card-featured ${statusClass}">
+      <div class="task-card-featured ${borderClass}">
         <div class="task-header">
           <div class="task-title">${timeBasedTask.title}</div>
           <div class="task-xp">+${timeBasedTask.xp} XP</div>
@@ -1007,14 +1014,27 @@ function renderTasks() {
     
     // Add event listener for time-based task
     const btn = document.getElementById(`task-btn-${timeBasedTask.id}`);
+    const cardElement = timeBasedContainer.querySelector('.task-card-featured');
+    
     if (btn) {
       btn.addEventListener("click", () => handleTaskAction(timeBasedTask));
       
-      // Handle time-based task countdown
+      // Handle time-based task countdown and border color
       const updateTimeBasedButton = () => {
-        const now = Date.now();
-        const nextClaimTime = timeBasedTask.nextClaimTime || 0;
-        const canClaim = now >= nextClaimTime;
+        const currentTime = Date.now();
+        const nextClaim = timeBasedTask.nextClaimTime || 0;
+        const canClaim = currentTime >= nextClaim;
+        
+        // Update border color
+        if (cardElement) {
+          if (canClaim) {
+            cardElement.classList.remove('claimed');
+            cardElement.classList.add('available');
+          } else {
+            cardElement.classList.remove('available');
+            cardElement.classList.add('claimed');
+          }
+        }
         
         if (canClaim) {
           btn.textContent = `Claim ${timeBasedTask.xp} XP`;
@@ -1023,7 +1043,7 @@ function renderTasks() {
           btn.style.opacity = '1';
           btn.style.cursor = 'pointer';
         } else {
-          const remainingTime = Math.ceil((nextClaimTime - now) / 1000);
+          const remainingTime = Math.ceil((nextClaim - currentTime) / 1000);
           const hours = Math.floor(remainingTime / 3600);
           const minutes = Math.floor((remainingTime % 3600) / 60);
           const seconds = remainingTime % 60;
@@ -1046,20 +1066,20 @@ function renderTasks() {
       // Update immediately
       updateTimeBasedButton();
       
-      // Update every second if not ready to claim
-      const now = Date.now();
-      const nextClaimTime = timeBasedTask.nextClaimTime || 0;
-      if (now < nextClaimTime) {
-        const countdownInterval = setInterval(() => {
-          const currentTime = Date.now();
-          if (currentTime >= nextClaimTime) {
-            clearInterval(countdownInterval);
-            updateTimeBasedButton();
-          } else {
-            updateTimeBasedButton();
-          }
-        }, 1000);
-      }
+      // Update every second
+      const countdownInterval = setInterval(() => {
+        const currentTime = Date.now();
+        const nextClaim = timeBasedTask.nextClaimTime || 0;
+        if (currentTime >= nextClaim) {
+          updateTimeBasedButton();
+          // Keep interval running to update border color when cooldown ends
+        } else {
+          updateTimeBasedButton();
+        }
+      }, 1000);
+      
+      // Store interval ID on task for cleanup if needed
+      timeBasedTask.countdownInterval = countdownInterval;
     }
   }
 
@@ -1234,11 +1254,12 @@ async function handleTaskAction(task) {
 
   // Handle time-based task separately
   if (task.isTimeBased) {
-    const now = Date.now();
+    // First check local time (for UI feedback)
+    const localNow = Date.now();
     const nextClaimTime = task.nextClaimTime || 0;
     
-    if (now < nextClaimTime) {
-      const remainingTime = Math.ceil((nextClaimTime - now) / 1000);
+    if (localNow < nextClaimTime) {
+      const remainingTime = Math.ceil((nextClaimTime - localNow) / 1000);
       const hours = Math.floor(remainingTime / 3600);
       const minutes = Math.floor((remainingTime % 3600) / 60);
       const seconds = remainingTime % 60;
@@ -1256,6 +1277,19 @@ async function handleTaskAction(task) {
 
     try {
       showLoading(true);
+
+      // Validate with server first (prevents time manipulation)
+      const validation = await validateTimeBasedClaim(
+        state.walletAddress,
+        task.lastClaimTime || null,
+        task.nextClaimTime || 0
+      );
+
+      if (!validation.success) {
+        showLoading(false);
+        alert(validation.error || "Claim validation failed. Please try again.");
+        return;
+      }
 
       // Directly proceed with fee payment (no fee modal)
       const feeWei = (parseFloat(CONFIG.FEE_AMOUNT) * 1e18).toString(16);
@@ -1275,9 +1309,10 @@ async function handleTaskAction(task) {
       // Wait for transaction confirmation
       await waitForTransaction(txHash);
 
-      // Update time-based claim timestamps
-      task.lastClaimTime = now;
-      task.nextClaimTime = now + CONFIG.TIME_BASED_CLAIM_INTERVAL;
+      // Update time-based claim timestamps using server time
+      task.lastClaimTime = validation.lastClaimTime;
+      task.nextClaimTime = validation.nextClaimTime;
+      task.serverTimeOffset = validation.serverTime - localNow; // Store offset for future checks
       
       // Add XP to time-based total
       state.timeBasedTotalXP = (state.timeBasedTotalXP || 0) + task.xp;
@@ -1398,6 +1433,49 @@ function formatWalletAddress(address) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+// Get server timestamp
+async function getServerTimestamp() {
+  try {
+    const response = await fetch(`${CONFIG.API_URL}/api/timestamp`);
+    if (response.ok) {
+      const data = await response.json();
+      return data.timestamp;
+    }
+  } catch (error) {
+    console.error('Error fetching server timestamp:', error);
+  }
+  // Fallback to local time if server fails
+  return Date.now();
+}
+
+// Validate time-based claim with server
+async function validateTimeBasedClaim(walletAddress, lastClaimTime, nextClaimTime) {
+  try {
+    const response = await fetch(`${CONFIG.API_URL}/api/time-based-claim`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        walletAddress: walletAddress,
+        lastClaimTime: lastClaimTime,
+        nextClaimTime: nextClaimTime
+      })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      return { success: true, ...data };
+    } else {
+      const error = await response.json();
+      return { success: false, error: error.error || 'Validation failed' };
+    }
+  } catch (error) {
+    console.error('Error validating time-based claim:', error);
+    return { success: false, error: 'Network error. Please try again.' };
+  }
+}
+
 // Update user XP on server
 async function updateUserOnServer() {
   if (!state.walletAddress || !state.xConnected) {
@@ -1413,7 +1491,8 @@ async function updateUserOnServer() {
     
     const requestBody = {
       walletAddress: state.walletAddress,
-      tasks: tasksData
+      tasks: tasksData,
+      timeBasedTotalXP: state.timeBasedTotalXP || 0
     };
     
     console.log('Updating user on server:', requestBody);
