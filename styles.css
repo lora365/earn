@@ -997,8 +997,6 @@ body::before {
 }
 
 .cta__card {
-  max-width: 1200px;
-  margin: 0 auto;
   background: linear-gradient(135deg, rgba(246, 201, 14, 0.12), rgba(11, 11, 13, 0.8));
   border: 1px solid var(--border);
   border-radius: 18px;
