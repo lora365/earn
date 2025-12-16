@@ -537,6 +537,76 @@ body::before {
   background: rgba(40, 167, 69, 0.05);
 }
 
+/* Featured time-based task card - larger and centered */
+.task-card-featured {
+  background: var(--card);
+  backdrop-filter: blur(20px);
+  border: 2px solid var(--yellow);
+  border-radius: 20px;
+  padding: 40px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeInUp 0.6s ease 0.1s forwards;
+  max-width: 600px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(246, 201, 14, 0.2);
+}
+
+.task-card-featured::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 0%, rgba(246, 201, 14, 0.15), transparent 60%);
+  opacity: 1;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.task-card-featured:hover {
+  border-color: var(--yellow-strong);
+  box-shadow: 0 12px 40px rgba(246, 201, 14, 0.4);
+  transform: translateY(-6px);
+}
+
+.task-card-featured:hover::before {
+  opacity: 1;
+}
+
+.task-card-featured .task-header {
+  margin-bottom: 20px;
+}
+
+.task-card-featured .task-title {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.task-card-featured .task-xp {
+  font-size: 18px;
+  padding: 6px 16px;
+  border-radius: 14px;
+}
+
+.task-card-featured .task-description {
+  font-size: 16px;
+  margin-bottom: 24px;
+  line-height: 1.7;
+}
+
+.task-card-featured .task-actions {
+  justify-content: center;
+}
+
+.task-card-featured .task-actions .btn-primary {
+  padding: 16px 32px;
+  font-size: 16px;
+  font-weight: 600;
+  min-width: 200px;
+}
+
 .task-header {
   display: flex;
   justify-content: space-between;

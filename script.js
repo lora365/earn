@@ -982,9 +982,89 @@ function updateXStatus() {
 // Task Functions
 function renderTasks() {
   const tasksGrid = document.getElementById("tasksGrid");
+  const timeBasedContainer = document.getElementById("timeBasedTaskContainer");
   if (!tasksGrid) return;
 
-  tasksGrid.innerHTML = state.tasks
+  // Separate time-based task from regular tasks
+  const timeBasedTask = state.tasks.find(task => task.isTimeBased);
+  const regularTasks = state.tasks.filter(task => !task.isTimeBased);
+
+  // Render time-based task separately (featured, larger)
+  if (timeBasedTask && timeBasedContainer) {
+    const statusClass = timeBasedTask.status === "completed" ? "completed" : "";
+    timeBasedContainer.innerHTML = `
+      <div class="task-card-featured ${statusClass}">
+        <div class="task-header">
+          <div class="task-title">${timeBasedTask.title}</div>
+          <div class="task-xp">+${timeBasedTask.xp} XP</div>
+        </div>
+        <div class="task-description">${timeBasedTask.description}</div>
+        <div class="task-actions">
+          ${getTaskButton(timeBasedTask)}
+        </div>
+      </div>
+    `;
+    
+    // Add event listener for time-based task
+    const btn = document.getElementById(`task-btn-${timeBasedTask.id}`);
+    if (btn) {
+      btn.addEventListener("click", () => handleTaskAction(timeBasedTask));
+      
+      // Handle time-based task countdown
+      const updateTimeBasedButton = () => {
+        const now = Date.now();
+        const nextClaimTime = timeBasedTask.nextClaimTime || 0;
+        const canClaim = now >= nextClaimTime;
+        
+        if (canClaim) {
+          btn.textContent = `Claim ${timeBasedTask.xp} XP`;
+          btn.disabled = false;
+          btn.classList.remove('disabled');
+          btn.style.opacity = '1';
+          btn.style.cursor = 'pointer';
+        } else {
+          const remainingTime = Math.ceil((nextClaimTime - now) / 1000);
+          const hours = Math.floor(remainingTime / 3600);
+          const minutes = Math.floor((remainingTime % 3600) / 60);
+          const seconds = remainingTime % 60;
+          let timeText = '';
+          if (hours > 0) {
+            timeText = `${hours}h ${minutes}m ${seconds}s`;
+          } else if (minutes > 0) {
+            timeText = `${minutes}m ${seconds}s`;
+          } else {
+            timeText = `${seconds}s`;
+          }
+          btn.textContent = `Claim in ${timeText}`;
+          btn.disabled = true;
+          btn.classList.add('disabled');
+          btn.style.opacity = '0.5';
+          btn.style.cursor = 'not-allowed';
+        }
+      };
+      
+      // Update immediately
+      updateTimeBasedButton();
+      
+      // Update every second if not ready to claim
+      const now = Date.now();
+      const nextClaimTime = timeBasedTask.nextClaimTime || 0;
+      if (now < nextClaimTime) {
+        const countdownInterval = setInterval(() => {
+          const currentTime = Date.now();
+          if (currentTime >= nextClaimTime) {
+            clearInterval(countdownInterval);
+            updateTimeBasedButton();
+          } else {
+            updateTimeBasedButton();
+          }
+        }, 1000);
+      }
+    }
+  }
+
+  // Render regular tasks
+  tasksGrid.innerHTML = regularTasks
     .map((task, index) => {
       const statusClass = task.status === "completed" ? "completed" : "";
       return `
@@ -1002,68 +1082,15 @@ function renderTasks() {
     })
     .join("");
 
-  // Add event listeners to task buttons
-  state.tasks.forEach((task) => {
+  // Add event listeners to regular task buttons
+  regularTasks.forEach((task) => {
     // Verify & Claim button
     const btn = document.getElementById(`task-btn-${task.id}`);
     if (btn) {
       btn.addEventListener("click", () => handleTaskAction(task));
       
-      // Handle time-based task countdown
-      if (task.isTimeBased) {
-        const updateTimeBasedButton = () => {
-          const now = Date.now();
-          const nextClaimTime = task.nextClaimTime || 0;
-          const canClaim = now >= nextClaimTime;
-          
-          if (canClaim) {
-            btn.textContent = `Claim ${task.xp} XP`;
-            btn.disabled = false;
-            btn.classList.remove('disabled');
-            btn.style.opacity = '1';
-            btn.style.cursor = 'pointer';
-          } else {
-            const remainingTime = Math.ceil((nextClaimTime - now) / 1000);
-            const hours = Math.floor(remainingTime / 3600);
-            const minutes = Math.floor((remainingTime % 3600) / 60);
-            const seconds = remainingTime % 60;
-            let timeText = '';
-            if (hours > 0) {
-              timeText = `${hours}h ${minutes}m ${seconds}s`;
-            } else if (minutes > 0) {
-              timeText = `${minutes}m ${seconds}s`;
-            } else {
-              timeText = `${seconds}s`;
-            }
-            btn.textContent = `Claim in ${timeText}`;
-            btn.disabled = true;
-            btn.classList.add('disabled');
-            btn.style.opacity = '0.5';
-            btn.style.cursor = 'not-allowed';
-          }
-        };
-        
-        // Update immediately
-        updateTimeBasedButton();
-        
-        // Update every second if not ready to claim
-        const now = Date.now();
-        const nextClaimTime = task.nextClaimTime || 0;
-        if (now < nextClaimTime) {
-          const countdownInterval = setInterval(() => {
-            const currentTime = Date.now();
-            if (currentTime >= nextClaimTime) {
-              clearInterval(countdownInterval);
-              updateTimeBasedButton();
-            } else {
-              updateTimeBasedButton();
-            }
-          }, 1000);
-        }
-      }
-      
       // If task was opened but 6 seconds haven't passed, start countdown
-      if (!task.isTimeBased && task.opened && task.openedAt) {
+      if (task.opened && task.openedAt) {
         const timeSinceOpened = Date.now() - task.openedAt;
         const requiredWaitTime = 6000; // 6 seconds
         
