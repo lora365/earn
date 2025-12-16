@@ -23,8 +23,8 @@
         <div class="header-content">
           <div class="logo brand-name">resilora</div>
           <nav class="nav-links">
-            <a href="#tasks" onclick="if(document.getElementById('stepTasks')) { showStep('stepTasks'); } return false;">Tasks</a>
-            <a href="#leaderboard" onclick="if(document.getElementById('stepTasks')) { showStep('stepTasks'); setTimeout(() => { document.getElementById('leaderboardList')?.scrollIntoView({ behavior: 'smooth' }); }, 100); } return false;">Leaderboard</a>
+            <a href="#tasks" onclick="if(document.getElementById('stepTasks')) { showStep('stepTasks'); setTimeout(() => { document.getElementById('tasksGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100); } return false;">Tasks</a>
+            <a href="#leaderboard" onclick="if(document.getElementById('stepTasks')) { showStep('stepTasks'); setTimeout(() => { document.getElementById('leaderboardList')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100); } return false;">Leaderboard</a>
           </nav>
           <div class="header-actions">
             <div class="wallet-info" id="walletInfo" style="display: none;">
