@@ -17,6 +17,8 @@ const CONFIG = {
     ? 'http://localhost:3001' 
     : window.location.origin, // Vercel'de frontend ve backend aynı domain'de olacak
   LEADERBOARD_REFRESH_INTERVAL: 30000, // Refresh leaderboard every 30 seconds
+  TIME_BASED_CLAIM_INTERVAL: 43200000, // Time-based claim interval: 12 hours (43200000 ms)
+  TIME_BASED_CLAIM_XP: 200, // XP amount for time-based claim
 };
 
 // State
@@ -25,6 +27,7 @@ let state = {
   walletAddress: null,
   xConnected: false,
   totalXP: 0,
+  timeBasedTotalXP: 0, // Total XP from time-based claims
   ethereumProvider: null, // Store the ethereum provider to remove listeners
   tasks: [
     {
@@ -73,15 +76,6 @@ let state = {
       actionUrl: "https://t.me/resilora_official",
     },
     {
-      id: 6,
-      title: "Test Task (QA)",
-      description: "Complete this test task to validate leaderboard updates.",
-      xp: 10,
-      status: "pending",
-      action: "test",
-      actionUrl: "#",
-    },
-    {
       id: 7,
       title: "Visit Resilora Website",
       description: "Visit the official Resilora website to learn more about the project and ecosystem.",
@@ -89,6 +83,16 @@ let state = {
       status: "pending",
       action: "visit",
       actionUrl: "https://resilora.xyz",
+    },
+    {
+      id: 8,
+      title: "Daily XP Claim",
+      description: "Claim your XP reward. You can claim again after the cooldown period.",
+      xp: CONFIG.TIME_BASED_CLAIM_XP,
+      status: "pending",
+      action: "timebased",
+      actionUrl: "#",
+      isTimeBased: true, // Special flag for time-based task
     },
   ],
 };
@@ -115,11 +119,14 @@ function saveStateToLocalStorage() {
       walletAddress: state.walletAddress,
       xConnected: state.xConnected,
       totalXP: state.totalXP, // This is now calculated, not accumulated
+      timeBasedTotalXP: state.timeBasedTotalXP || 0, // Save time-based XP
       tasks: state.tasks.map(task => ({
         id: task.id,
         status: task.status,
         opened: task.opened || false,
         openedAt: task.openedAt || null,
+        lastClaimTime: task.lastClaimTime || null,
+        nextClaimTime: task.nextClaimTime || null,
       })),
     };
     
@@ -162,9 +169,17 @@ function loadStateFromLocalStorage(walletAddress) {
               task.status = savedTask.status || "pending";
               task.opened = savedTask.opened || false;
               task.openedAt = savedTask.openedAt || null;
+              // Restore time-based claim timestamps
+              if (task.isTimeBased) {
+                task.lastClaimTime = savedTask.lastClaimTime || null;
+                task.nextClaimTime = savedTask.nextClaimTime || null;
+              }
             }
           });
         }
+        
+        // Restore time-based total XP
+        state.timeBasedTotalXP = parsed.timeBasedTotalXP || 0;
         
         // Recalculate XP from completed tasks instead of loading from localStorage
         state.totalXP = calculateTotalXP();
@@ -280,11 +295,24 @@ async function initializeApp() {
       task.status = "pending";
       task.opened = false;
       task.openedAt = null;
+      // Initialize time-based task
+      if (task.isTimeBased) {
+        task.lastClaimTime = null;
+        task.nextClaimTime = 0; // Can claim immediately
+      }
     });
     state.totalXP = 0;
+    state.timeBasedTotalXP = 0;
     state.xConnected = false;
     showStep("stepX");
   }
+  
+  // Initialize time-based task if not already set
+  state.tasks.forEach(task => {
+    if (task.isTimeBased && (task.nextClaimTime === undefined || task.nextClaimTime === null)) {
+      task.nextClaimTime = 0; // Can claim immediately
+    }
+  });
 
   // Check for OAuth callback - delay slightly to ensure DOM is ready
   setTimeout(() => {
@@ -981,8 +1009,61 @@ function renderTasks() {
     if (btn) {
       btn.addEventListener("click", () => handleTaskAction(task));
       
+      // Handle time-based task countdown
+      if (task.isTimeBased) {
+        const updateTimeBasedButton = () => {
+          const now = Date.now();
+          const nextClaimTime = task.nextClaimTime || 0;
+          const canClaim = now >= nextClaimTime;
+          
+          if (canClaim) {
+            btn.textContent = `Claim ${task.xp} XP`;
+            btn.disabled = false;
+            btn.classList.remove('disabled');
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+          } else {
+            const remainingTime = Math.ceil((nextClaimTime - now) / 1000);
+            const hours = Math.floor(remainingTime / 3600);
+            const minutes = Math.floor((remainingTime % 3600) / 60);
+            const seconds = remainingTime % 60;
+            let timeText = '';
+            if (hours > 0) {
+              timeText = `${hours}h ${minutes}m ${seconds}s`;
+            } else if (minutes > 0) {
+              timeText = `${minutes}m ${seconds}s`;
+            } else {
+              timeText = `${seconds}s`;
+            }
+            btn.textContent = `Claim in ${timeText}`;
+            btn.disabled = true;
+            btn.classList.add('disabled');
+            btn.style.opacity = '0.5';
+            btn.style.cursor = 'not-allowed';
+          }
+        };
+        
+        // Update immediately
+        updateTimeBasedButton();
+        
+        // Update every second if not ready to claim
+        const now = Date.now();
+        const nextClaimTime = task.nextClaimTime || 0;
+        if (now < nextClaimTime) {
+          const countdownInterval = setInterval(() => {
+            const currentTime = Date.now();
+            if (currentTime >= nextClaimTime) {
+              clearInterval(countdownInterval);
+              updateTimeBasedButton();
+            } else {
+              updateTimeBasedButton();
+            }
+          }, 1000);
+        }
+      }
+      
       // If task was opened but 6 seconds haven't passed, start countdown
-      if (task.opened && task.openedAt) {
+      if (!task.isTimeBased && task.opened && task.openedAt) {
         const timeSinceOpened = Date.now() - task.openedAt;
         const requiredWaitTime = 6000; // 6 seconds
         
@@ -1052,6 +1133,31 @@ function renderTasks() {
 }
 
 function getTaskButton(task) {
+  // Handle time-based task separately
+  if (task.isTimeBased) {
+    const now = Date.now();
+    const nextClaimTime = task.nextClaimTime || 0;
+    const canClaim = now >= nextClaimTime;
+    
+    if (canClaim) {
+      return `<button class="btn-primary" id="task-btn-${task.id}">Claim ${task.xp} XP</button>`;
+    } else {
+      const remainingTime = Math.ceil((nextClaimTime - now) / 1000);
+      const hours = Math.floor(remainingTime / 3600);
+      const minutes = Math.floor((remainingTime % 3600) / 60);
+      const seconds = remainingTime % 60;
+      let timeText = '';
+      if (hours > 0) {
+        timeText = `${hours}h ${minutes}m ${seconds}s`;
+      } else if (minutes > 0) {
+        timeText = `${minutes}m ${seconds}s`;
+      } else {
+        timeText = `${seconds}s`;
+      }
+      return `<button class="btn-primary disabled" id="task-btn-${task.id}" disabled style="opacity: 0.5; cursor: not-allowed;">Claim in ${timeText}</button>`;
+    }
+  }
+  
   if (task.status === "completed") {
     return `<div class="task-status completed">Completed</div>`;
   } else if (task.status === "claimable") {
@@ -1096,6 +1202,84 @@ async function handleTaskAction(task) {
 
   if (!state.walletConnected) {
     alert("Please connect your wallet first.");
+    return;
+  }
+
+  // Handle time-based task separately
+  if (task.isTimeBased) {
+    const now = Date.now();
+    const nextClaimTime = task.nextClaimTime || 0;
+    
+    if (now < nextClaimTime) {
+      const remainingTime = Math.ceil((nextClaimTime - now) / 1000);
+      const hours = Math.floor(remainingTime / 3600);
+      const minutes = Math.floor((remainingTime % 3600) / 60);
+      const seconds = remainingTime % 60;
+      let timeText = '';
+      if (hours > 0) {
+        timeText = `${hours}h ${minutes}m ${seconds}s`;
+      } else if (minutes > 0) {
+        timeText = `${minutes}m ${seconds}s`;
+      } else {
+        timeText = `${seconds}s`;
+      }
+      alert(`Please wait ${timeText} before claiming again.`);
+      return;
+    }
+
+    try {
+      showLoading(true);
+
+      // Directly proceed with fee payment (no fee modal)
+      const feeWei = (parseFloat(CONFIG.FEE_AMOUNT) * 1e18).toString(16);
+
+      // Send transaction directly to MetaMask
+      const txHash = await window.ethereum.request({
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: state.walletAddress,
+            to: CONFIG.TREASURY_WALLET,
+            value: `0x${feeWei}`,
+          },
+        ],
+      });
+
+      // Wait for transaction confirmation
+      await waitForTransaction(txHash);
+
+      // Update time-based claim timestamps
+      task.lastClaimTime = now;
+      task.nextClaimTime = now + CONFIG.TIME_BASED_CLAIM_INTERVAL;
+      
+      // Add XP to time-based total
+      state.timeBasedTotalXP = (state.timeBasedTotalXP || 0) + task.xp;
+      
+      // Update UI
+      updateTotalXP();
+      renderTasks();
+      
+      // Save state to localStorage and update server
+      saveStateToLocalStorage();
+      
+      // Immediately refresh leaderboard after claim
+      setTimeout(() => {
+        fetchLeaderboard();
+      }, 1000);
+      
+      showLoading(false);
+    } catch (error) {
+      console.error("Error claiming time-based XP:", error);
+      showLoading(false);
+      
+      if (error.code === 4001) {
+        // User rejected transaction
+        console.log("User rejected transaction");
+        alert("Transaction was cancelled. Please try again.");
+      } else {
+        alert("Transaction failed. Please try again.");
+      }
+    }
     return;
   }
 
@@ -1171,9 +1355,12 @@ async function handleTaskAction(task) {
 
 // Calculate total XP from completed tasks
 function calculateTotalXP() {
-  return state.tasks
+  const completedTasksXP = state.tasks
     .filter(task => task.status === "completed")
     .reduce((total, task) => total + task.xp, 0);
+  
+  // Add time-based XP
+  return completedTasksXP + (state.timeBasedTotalXP || 0);
 }
 
 // Leaderboard Functions
