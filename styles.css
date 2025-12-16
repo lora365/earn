@@ -1021,16 +1021,27 @@ body::before {
 
 /* Footer */
 .footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  margin-top: 60px;
   padding: 22px 0 0;
   border-top: 1px solid var(--border);
   color: var(--muted);
   font-size: 14px;
+}
+
+.footer .container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   flex-wrap: wrap;
-  margin-top: 60px;
+}
+
+.footer .logo.brand-name {
+  color: var(--yellow) !important;
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+  display: block;
 }
 
 .footer__social {
