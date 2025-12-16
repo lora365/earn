@@ -135,10 +135,8 @@ function saveStateToLocalStorage() {
     localStorage.setItem(key, JSON.stringify(stateToSave));
     console.log("State saved for wallet:", state.walletAddress, "Total XP:", state.totalXP);
     
-    // Also update on server if X is connected
-    if (state.xConnected) {
-      updateUserOnServer();
-    }
+    // Update on server (will handle X connection check internally)
+    updateUserOnServer();
   } catch (error) {
     console.error("Error saving state to localStorage:", error);
   }
@@ -1324,6 +1322,9 @@ async function handleTaskAction(task) {
       // Save state to localStorage and update server
       saveStateToLocalStorage();
       
+      // Update server with new XP
+      await updateUserOnServer();
+      
       // Immediately refresh leaderboard after claim
       setTimeout(() => {
         fetchLeaderboard();
@@ -1478,9 +1479,15 @@ async function validateTimeBasedClaim(walletAddress, lastClaimTime, nextClaimTim
 
 // Update user XP on server
 async function updateUserOnServer() {
-  if (!state.walletAddress || !state.xConnected) {
-    console.log('Skipping server update - wallet or X not connected');
+  if (!state.walletAddress) {
+    console.log('Skipping server update - wallet not connected');
     return;
+  }
+  
+  // Allow update even if X is not connected (for time-based claims)
+  // But still check if X is connected for regular tasks
+  if (!state.xConnected) {
+    console.log('X not connected - will only update time-based XP');
   }
   
   try {
@@ -1570,6 +1577,8 @@ function renderLeaderboardFromLocalStorage() {
                 }
               }
             });
+            // Add time-based XP
+            walletXP += savedState.timeBasedTotalXP || 0;
             wallets.push({
               address: savedState.walletAddress,
               xp: walletXP
