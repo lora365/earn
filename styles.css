@@ -75,16 +75,42 @@ body::before {
 }
 
 .header-content {
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 12px 32px;
+  padding: 14px 18px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(135deg, #000000, #1a1a1a);
-  border-radius: 50px;
-  border: 1px solid rgba(246, 201, 14, 0.2);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  background: rgba(11, 11, 13, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.nav-links {
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+}
+
+.nav-links a {
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  color: var(--text);
+  text-decoration: none;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.nav-links a:hover {
+  background: rgba(246, 201, 14, 0.14);
+  color: var(--yellow-strong);
+  border-color: rgba(246, 201, 14, 0.35);
+  box-shadow: 0 10px 24px rgba(246, 201, 14, 0.15);
 }
 
 .logo {
@@ -788,10 +814,33 @@ body::before {
   font-weight: 500;
 }
 
+@media (max-width: 900px) {
+  .header-content {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .nav-links {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
 @media (max-width: 768px) {
   .header-content {
     flex-direction: column;
     gap: 16px;
+  }
+
+  .nav-links,
+  .header-actions {
+    justify-content: center;
   }
 
   .step-card {
