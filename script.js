@@ -135,27 +135,9 @@ function initializeApp() {
 
 // Wallet Functions
 async function checkWalletConnection() {
-  if (typeof window.ethereum !== "undefined") {
-    try {
-      const accounts = await window.ethereum.request({ method: "eth_accounts" });
-      if (accounts.length > 0) {
-        state.walletConnected = true;
-        state.walletAddress = accounts[0];
-        
-        // Load saved state from localStorage
-        loadStateFromLocalStorage();
-        
-        // Update UI based on connection state
-        updateWalletUI();
-        
-        // Go directly to tasks after wallet connection
-        showStep("stepTasks");
-        fetchLeaderboard();
-      }
-    } catch (error) {
-      console.error("Error checking wallet:", error);
-    }
-  }
+  // Don't auto-connect on page load - user must click connect button
+  // This ensures MetaMask popup appears when user wants to connect
+  return;
 }
 
 async function connectWallet() {
@@ -318,7 +300,31 @@ function handleChainChanged(chainId) {
   window.location.reload();
 }
 
-function disconnectWallet() {
+async function disconnectWallet() {
+  // Revoke MetaMask permissions to fully disconnect
+  if (window.ethereum) {
+    try {
+      // Remove event listeners
+      if (window.ethereum.removeListener) {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        window.ethereum.removeListener('chainChanged', handleChainChanged);
+      }
+      
+      // Try to revoke permissions (if supported)
+      try {
+        await window.ethereum.request({
+          method: 'wallet_revokePermissions',
+          params: [{ eth_accounts: {} }]
+        });
+      } catch (revokeError) {
+        // If revoke is not supported, that's okay
+        console.log('Permission revoke not supported or already revoked');
+      }
+    } catch (error) {
+      console.error('Error during disconnect:', error);
+    }
+  }
+  
   state.walletConnected = false;
   state.walletAddress = null;
   
