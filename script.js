@@ -123,7 +123,6 @@ function initializeApp() {
     });
   }
   document.getElementById("disconnectBtn")?.addEventListener("click", disconnectWallet);
-  document.getElementById("connectXBtn")?.addEventListener("click", connectXAccount);
   document.getElementById("confirmFeeBtn")?.addEventListener("click", confirmFeePayment);
   document.getElementById("cancelFeeBtn")?.addEventListener("click", cancelFeePayment);
 
@@ -149,13 +148,9 @@ async function checkWalletConnection() {
         // Update UI based on connection state
         updateWalletUI();
         
-        // Show appropriate step based on X connection status
-        if (state.xConnected) {
-          showStep("stepTasks");
-          fetchLeaderboard();
-        } else {
-          showStep("stepX");
-        }
+        // Go directly to tasks after wallet connection
+        showStep("stepTasks");
+        fetchLeaderboard();
       }
     } catch (error) {
       console.error("Error checking wallet:", error);
@@ -239,7 +234,7 @@ async function connectWallet() {
       state.walletAddress = accounts[0];
       updateWalletUI();
       loadStateFromLocalStorage(); // Load user's saved state
-      showStep("stepX");
+      showStep("stepTasks");
       // Fetch leaderboard after wallet connection
       fetchLeaderboard();
     }
@@ -326,7 +321,6 @@ function handleChainChanged(chainId) {
 function disconnectWallet() {
   state.walletConnected = false;
   state.walletAddress = null;
-  state.xConnected = false;
   
   // Clear localStorage
   localStorage.removeItem('earnState');
@@ -366,8 +360,8 @@ function updateWalletUI() {
       walletAddress.textContent = `${state.walletAddress.slice(0, 6)}...${state.walletAddress.slice(-4)}`;
     }
     if (connectBtn) connectBtn.style.display = "none";
-    // Only show nav links if both wallet and X are connected
-    if (navLinks) navLinks.style.display = (state.walletConnected && state.xConnected) ? "flex" : "none";
+    // Show nav links when wallet is connected
+    if (navLinks) navLinks.style.display = "flex";
   } else {
     if (walletInfo) walletInfo.style.display = "none";
     if (connectBtn) connectBtn.style.display = "block";
@@ -470,8 +464,8 @@ function getTaskButton(task) {
 }
 
 async function handleTaskAction(task) {
-  if (!state.xConnected) {
-    alert("Please connect your X account first.");
+  if (!state.walletConnected) {
+    alert("Please connect your wallet first.");
     return;
   }
 
