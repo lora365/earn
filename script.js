@@ -131,12 +131,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   initializeApp();
 });
 
-function initializeApp() {
+async function initializeApp() {
   // Load state from localStorage
   loadStateFromLocalStorage();
 
-  // Check if wallet is already connected
-  checkWalletConnection();
+  // Check if wallet is already connected (await to ensure it completes)
+  await checkWalletConnection();
 
   // Event listeners
   const connectBtn = document.getElementById("connectWalletBtnMain");
@@ -153,6 +153,9 @@ function initializeApp() {
 
   // Load tasks
   renderTasks();
+  
+  // Ensure wallet UI is updated after everything is loaded
+  updateWalletUI();
 }
 
 // Wallet Functions
