@@ -436,16 +436,23 @@ function updateWalletUI() {
   const connectBtn = document.getElementById("connectWalletBtn");
   const navLinks = document.querySelector(".nav-links");
 
-  if (state.walletConnected) {
-    if (walletInfo) walletInfo.style.display = "flex";
-    if (walletAddress && state.walletAddress) {
+  if (state.walletConnected && state.walletAddress) {
+    if (walletInfo) {
+      walletInfo.style.display = "flex";
+      walletInfo.style.visibility = "visible";
+    }
+    if (walletAddress) {
       walletAddress.textContent = `${state.walletAddress.slice(0, 6)}...${state.walletAddress.slice(-4)}`;
+      walletAddress.style.display = "inline-block";
     }
     if (connectBtn) connectBtn.style.display = "none";
     // Show nav links when wallet is connected
     if (navLinks) navLinks.style.display = "flex";
   } else {
-    if (walletInfo) walletInfo.style.display = "none";
+    if (walletInfo) {
+      walletInfo.style.display = "none";
+      walletInfo.style.visibility = "hidden";
+    }
     if (connectBtn) connectBtn.style.display = "block";
     if (navLinks) navLinks.style.display = "none";
   }
