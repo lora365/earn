@@ -298,17 +298,30 @@ async function connectWallet() {
       state.walletConnected = true;
       state.walletAddress = connectedAddress;
       
+      console.log("Wallet connected:", {
+        walletConnected: state.walletConnected,
+        walletAddress: state.walletAddress
+      });
+      
       // Load saved state for this specific wallet
       loadStateFromLocalStorage();
       
       // Save state after loading
       saveStateToLocalStorage();
       
+      // Update UI immediately
+      updateWalletUI();
+      
       showStep("stepTasks");
-      // Update wallet UI after step is shown
+      
+      // Update wallet UI again after step is shown (to ensure it's visible)
       setTimeout(() => {
+        console.log("Updating wallet UI after showStep:", {
+          walletConnected: state.walletConnected,
+          walletAddress: state.walletAddress
+        });
         updateWalletUI();
-      }, 50);
+      }, 100);
       
       // Check network
       const chainId = await ethereum.request({ method: "eth_chainId" });
@@ -444,14 +457,17 @@ function updateWalletUI() {
     const connectBtn = document.getElementById("connectWalletBtn");
     const navLinks = document.querySelector(".nav-links");
 
-    console.log("updateWalletUI called", {
-      walletConnected: state.walletConnected,
-      walletAddress: state.walletAddress,
-      walletInfo: !!walletInfo,
-      walletAddressEl: !!walletAddress
-    });
+  console.log("updateWalletUI called", {
+    walletConnected: state.walletConnected,
+    walletAddress: state.walletAddress,
+    walletInfo: !!walletInfo,
+    walletAddressEl: !!walletAddress,
+    walletInfoDisplay: walletInfo ? walletInfo.style.display : "N/A",
+    walletInfoVisibility: walletInfo ? walletInfo.style.visibility : "N/A"
+  });
 
-    if (state.walletConnected && state.walletAddress) {
+  if (state.walletConnected && state.walletAddress) {
+    console.log("Condition met: walletConnected && walletAddress exist");
       if (walletInfo) {
         walletInfo.style.display = "flex";
         walletInfo.style.visibility = "visible";
