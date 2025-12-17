@@ -492,6 +492,41 @@ function renderTasks() {
       btn.addEventListener("click", () => handleTaskAction(task));
     }
   });
+  
+  // Check and restore timers for pending tasks
+  state.tasks.forEach((task) => {
+    if (task.status === "pending") {
+      const taskTimerKey = `taskTimer_${task.id}`;
+      const timerData = localStorage.getItem(taskTimerKey);
+      
+      if (timerData) {
+        const elapsed = Date.now() - parseInt(timerData);
+        const remaining = 5000 - elapsed;
+        
+        if (remaining > 0) {
+          // Timer is still counting, enable button after remaining time
+          setTimeout(() => {
+            const verifyBtn = document.getElementById(`task-btn-${task.id}`);
+            if (verifyBtn && verifyBtn.disabled) {
+              verifyBtn.disabled = false;
+              verifyBtn.style.opacity = "1";
+              verifyBtn.style.cursor = "pointer";
+              verifyBtn.title = "";
+            }
+          }, remaining);
+        } else {
+          // Timer already finished, enable button immediately
+          const verifyBtn = document.getElementById(`task-btn-${task.id}`);
+          if (verifyBtn && verifyBtn.disabled) {
+            verifyBtn.disabled = false;
+            verifyBtn.style.opacity = "1";
+            verifyBtn.style.cursor = "pointer";
+            verifyBtn.title = "";
+          }
+        }
+      }
+    }
+  });
 }
 
 function getTaskButton(task) {
@@ -500,23 +535,38 @@ function getTaskButton(task) {
   } else if (task.status === "claimable") {
     return `<button class="btn-primary" id="task-btn-${task.id}">Claim ${task.xp} XP</button>`;
   } else {
-    // Verify button is disabled until user completes the task
+    // Check if verify button should be enabled (5 seconds after clicking Open X)
+    const taskTimerKey = `taskTimer_${task.id}`;
+    const timerData = localStorage.getItem(taskTimerKey);
+    const isEnabled = timerData && (Date.now() - parseInt(timerData)) >= 5000;
+    
     return `
-      <a href="${task.actionUrl}" target="_blank" class="btn-secondary" style="text-decoration: none; display: inline-block;">
+      <a href="${task.actionUrl}" target="_blank" class="btn-secondary" style="text-decoration: none; display: inline-block;" onclick="startTaskTimer(${task.id})">
         Open X
       </a>
-      <button class="btn-primary" id="task-btn-${task.id}" disabled style="opacity: 0.5; cursor: not-allowed;" title="Please complete the task first by clicking 'Open X'">
+      <button class="btn-primary" id="task-btn-${task.id}" ${isEnabled ? '' : 'disabled style="opacity: 0.5; cursor: not-allowed;"'} title="${isEnabled ? '' : 'Please complete the task first by clicking \'Open X\''}">
         Verify & Claim
       </button>
-      <div style="margin-top: 8px; font-size: 12px; color: #888;">
-        <label style="cursor: pointer; display: flex; align-items: center; gap: 6px;">
-          <input type="checkbox" id="task-check-${task.id}" style="cursor: pointer;" onchange="enableVerifyButton(${task.id})">
-          <span>I have completed this task</span>
-        </label>
-      </div>
     `;
   }
 }
+
+// Global function to start timer when Open X is clicked
+window.startTaskTimer = function(taskId) {
+  const taskTimerKey = `taskTimer_${taskId}`;
+  localStorage.setItem(taskTimerKey, Date.now().toString());
+  
+  // Enable button after 5 seconds
+  setTimeout(() => {
+    const verifyBtn = document.getElementById(`task-btn-${taskId}`);
+    if (verifyBtn && verifyBtn.disabled) {
+      verifyBtn.disabled = false;
+      verifyBtn.style.opacity = "1";
+      verifyBtn.style.cursor = "pointer";
+      verifyBtn.title = "";
+    }
+  }, 5000);
+};
 
 async function handleTaskAction(task) {
   if (!state.walletConnected) {
