@@ -28,7 +28,8 @@ module.exports = async (req, res) => {
     const serverTime = Date.now();
     
     // Validate that enough time has passed since last claim
-    if (lastClaimTime && nextClaimTime) {
+    // Only validate if this is not the first claim (lastClaimTime and nextClaimTime exist and are not 0)
+    if (lastClaimTime && nextClaimTime && lastClaimTime !== 0 && nextClaimTime !== 0) {
       // Check if client's nextClaimTime is in the past (allowing for small clock differences)
       const timeDifference = serverTime - nextClaimTime;
       const allowedDifference = 5 * 60 * 1000; // Allow 5 minutes difference for clock drift

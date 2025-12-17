@@ -590,10 +590,11 @@ function renderTasks() {
   const regularTasks = state.tasks.filter(task => !task.isTimeBased);
   const timeBasedTasks = state.tasks.filter(task => task.isTimeBased);
 
-  // Render time-based task in featured container
+    // Render time-based task in featured container
   if (timeBasedTaskContainer && timeBasedTasks.length > 0) {
     const timeBasedTask = timeBasedTasks[0];
-    const canClaim = !state.nextClaimTime || Date.now() >= (state.nextClaimTime + state.serverTimeOffset);
+    // Allow claim if nextClaimTime is null, 0, or has passed
+    const canClaim = !state.nextClaimTime || state.nextClaimTime === 0 || Date.now() >= (state.nextClaimTime + state.serverTimeOffset);
     const statusClass = canClaim ? "available" : "claimed";
     
     // Calculate time remaining
@@ -715,7 +716,8 @@ function renderTasks() {
 function getTaskButton(task, countdownText = "") {
   // Handle time-based tasks
   if (task.isTimeBased) {
-    const canClaim = !state.nextClaimTime || Date.now() >= (state.nextClaimTime + state.serverTimeOffset);
+    // Allow claim if nextClaimTime is null, 0, or has passed
+    const canClaim = !state.nextClaimTime || state.nextClaimTime === 0 || Date.now() >= (state.nextClaimTime + state.serverTimeOffset);
     if (canClaim) {
       return `<button class="btn-primary" id="task-btn-${task.id}">Claim ${task.xp} XP</button>`;
     } else {
@@ -775,32 +777,10 @@ async function handleTaskAction(task) {
     
     // Handle time-based tasks with server-side validation
     if (task.isTimeBased) {
-      // Get server timestamp first
-      const serverTimestamp = await getServerTimestamp();
-      const clientTimestamp = Date.now();
-      state.serverTimeOffset = serverTimestamp - clientTimestamp;
-      
-      // Validate claim with server
-      const validationResult = await validateTimeBasedClaim(
-        state.walletAddress,
-        task.id,
-        clientTimestamp
-      );
-      
-      if (!validationResult.success) {
-        showLoading(false);
-        alert(validationResult.error || "Claim validation failed. Please try again.");
-        return;
-      }
-      
-      // Update claim times from server response
-      state.lastClaimTime = validationResult.lastClaimTime;
-      state.nextClaimTime = validationResult.nextClaimTime;
-      state.serverTimeOffset = validationResult.serverTime - clientTimestamp;
-      
       // Use time-based fee amount
       const feeWei = (parseFloat(CONFIG.TIME_BASED_FEE_AMOUNT) * 1e18).toString(16);
       
+      // Send transaction first
       const txHash = await window.ethereum.request({
         method: "eth_sendTransaction",
         params: [
@@ -814,6 +794,38 @@ async function handleTaskAction(task) {
 
       // Wait for transaction confirmation
       await waitForTransaction(txHash);
+      
+      // After fee is paid, validate claim with server and set cooldown
+      const serverTimestamp = await getServerTimestamp();
+      const clientTimestamp = Date.now();
+      state.serverTimeOffset = serverTimestamp - clientTimestamp;
+      
+      // Validate claim with server (this will set the next claim time)
+      const validationResult = await validateTimeBasedClaim(
+        state.walletAddress,
+        task.id,
+        clientTimestamp
+      );
+      
+      if (!validationResult.success) {
+        // Even if validation fails, we already paid the fee, so update the cooldown
+        // This prevents users from claiming multiple times
+        const serverTime = await getServerTimestamp();
+        state.lastClaimTime = serverTime;
+        state.nextClaimTime = serverTime + CONFIG.TIME_BASED_CLAIM_INTERVAL;
+        state.serverTimeOffset = serverTime - Date.now();
+        
+        showLoading(false);
+        alert(validationResult.error || "Claim processed, but validation had issues. Cooldown has been set.");
+        saveStateToLocalStorage();
+        renderTasks();
+        return;
+      }
+      
+      // Update claim times from server response
+      state.lastClaimTime = validationResult.lastClaimTime;
+      state.nextClaimTime = validationResult.nextClaimTime;
+      state.serverTimeOffset = validationResult.serverTime - clientTimestamp;
       
       // Update time-based XP
       state.timeBasedTotalXP += task.xp;
