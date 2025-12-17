@@ -248,8 +248,14 @@ async function connectWallet() {
     if (accounts && accounts.length > 0) {
       state.walletConnected = true;
       state.walletAddress = accounts[0];
+      
+      // Load saved state from localStorage
+      loadStateFromLocalStorage();
+      
+      // Save state after loading
+      saveStateToLocalStorage();
+      
       updateWalletUI();
-      loadStateFromLocalStorage(); // Load user's saved state
       showStep("stepTasks");
       // Fetch leaderboard after wallet connection
       fetchLeaderboard();
