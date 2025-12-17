@@ -500,11 +500,20 @@ function getTaskButton(task) {
   } else if (task.status === "claimable") {
     return `<button class="btn-primary" id="task-btn-${task.id}">Claim ${task.xp} XP</button>`;
   } else {
+    // Verify button is disabled until user completes the task
     return `
       <a href="${task.actionUrl}" target="_blank" class="btn-secondary" style="text-decoration: none; display: inline-block;">
         Open X
       </a>
-      <button class="btn-primary" id="task-btn-${task.id}">Verify & Claim</button>
+      <button class="btn-primary" id="task-btn-${task.id}" disabled style="opacity: 0.5; cursor: not-allowed;" title="Please complete the task first by clicking 'Open X'">
+        Verify & Claim
+      </button>
+      <div style="margin-top: 8px; font-size: 12px; color: #888;">
+        <label style="cursor: pointer; display: flex; align-items: center; gap: 6px;">
+          <input type="checkbox" id="task-check-${task.id}" style="cursor: pointer;" onchange="enableVerifyButton(${task.id})">
+          <span>I have completed this task</span>
+        </label>
+      </div>
     `;
   }
 }
@@ -608,6 +617,19 @@ function loadStateFromLocalStorage() {
       // Load tasks
       if (parsed.tasks) {
         state.tasks = parsed.tasks;
+        
+        // Restore checkbox states for pending tasks
+        setTimeout(() => {
+          parsed.tasks.forEach(task => {
+            if (task.status === "pending") {
+              const checkbox = document.getElementById(`task-check-${task.id}`);
+              if (checkbox) {
+                checkbox.checked = false;
+                window.enableVerifyButton(task.id);
+              }
+            }
+          });
+        }, 100);
       }
       
       // Load XP data
