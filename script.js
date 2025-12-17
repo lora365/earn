@@ -146,6 +146,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 async function initializeApp() {
   // Load state from localStorage
   loadStateFromLocalStorage();
+  
+  // Initialize nextClaimTime for time-based tasks if not set
+  if (!state.nextClaimTime) {
+    state.nextClaimTime = 0; // Allow immediate first claim
+  }
 
   // Check if wallet is already connected (await to ensure it completes)
   await checkWalletConnection();
