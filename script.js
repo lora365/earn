@@ -191,6 +191,11 @@ async function checkWalletConnection() {
         updateWalletUI();
         showStep("stepTasks");
         
+        // Update UI again after step is shown
+        setTimeout(() => {
+          updateWalletUI();
+        }, 100);
+        
         // Set up event listeners
         if (window.ethereum.on) {
           window.ethereum.on("accountsChanged", handleAccountsChanged);
