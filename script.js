@@ -1001,48 +1001,101 @@ function updateTotalXP() {
 }
 
 // Surprise Box Functions
+function getBoxIcon(boxId) {
+  // Return SVG icons for each box type
+  const icons = {
+    bronze: `<svg width="80" height="80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="20" y="30" width="60" height="50" rx="4" fill="#cd7f32" stroke="#8b5a2b" stroke-width="2"/>
+      <rect x="25" y="35" width="50" height="40" rx="2" fill="#b87333" opacity="0.8"/>
+      <rect x="30" y="40" width="40" height="30" rx="2" fill="#cd7f32"/>
+      <path d="M35 45 L65 45 M35 50 L65 50 M35 55 L65 55" stroke="#8b5a2b" stroke-width="1.5"/>
+      <rect x="45" y="20" width="10" height="12" rx="2" fill="#cd7f32" stroke="#8b5a2b" stroke-width="1"/>
+    </svg>`,
+    silver: `<svg width="80" height="80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="20" y="30" width="60" height="50" rx="4" fill="#c0c0c0" stroke="#808080" stroke-width="2"/>
+      <rect x="25" y="35" width="50" height="40" rx="2" fill="#e8e8e8" opacity="0.8"/>
+      <rect x="30" y="40" width="40" height="30" rx="2" fill="#c0c0c0"/>
+      <path d="M35 45 L65 45 M35 50 L65 50 M35 55 L65 55" stroke="#808080" stroke-width="1.5"/>
+      <rect x="45" y="20" width="10" height="12" rx="2" fill="#c0c0c0" stroke="#808080" stroke-width="1"/>
+    </svg>`,
+    gold: `<svg width="80" height="80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="20" y="30" width="60" height="50" rx="4" fill="#ffd700" stroke="#ffa500" stroke-width="2"/>
+      <rect x="25" y="35" width="50" height="40" rx="2" fill="#ffed4e" opacity="0.8"/>
+      <rect x="30" y="40" width="40" height="30" rx="2" fill="#ffd700"/>
+      <path d="M35 45 L65 45 M35 50 L65 50 M35 55 L65 55" stroke="#ffa500" stroke-width="1.5"/>
+      <rect x="45" y="20" width="10" height="12" rx="2" fill="#ffd700" stroke="#ffa500" stroke-width="1"/>
+    </svg>`,
+    free: `<svg width="80" height="80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="20" y="30" width="60" height="50" rx="4" fill="#4a90e2" stroke="#2c5aa0" stroke-width="2"/>
+      <rect x="25" y="35" width="50" height="40" rx="2" fill="#6ba3e8" opacity="0.8"/>
+      <rect x="30" y="40" width="40" height="30" rx="2" fill="#4a90e2"/>
+      <path d="M35 45 L65 45 M35 50 L65 50 M35 55 L65 55" stroke="#2c5aa0" stroke-width="1.5"/>
+      <rect x="45" y="20" width="10" height="12" rx="2" fill="#4a90e2" stroke="#2c5aa0" stroke-width="1"/>
+    </svg>`
+  };
+  return icons[boxId] || icons.free;
+}
+
 function renderSurpriseBoxes() {
   const surpriseBoxesGrid = document.getElementById("surpriseBoxesGrid");
+  const freeBoxContainer = document.getElementById("freeBoxContainer");
   if (!surpriseBoxesGrid) return;
 
-  surpriseBoxesGrid.innerHTML = state.surpriseBoxes
+  // Separate paid boxes from free box
+  const paidBoxes = state.surpriseBoxes.filter(box => !box.isFree);
+  const freeBox = state.surpriseBoxes.find(box => box.isFree);
+
+  // Render paid boxes
+  surpriseBoxesGrid.innerHTML = paidBoxes
     .map((box, index) => {
-      const isFreeBox = box.isFree;
-      let canOpen = false;
-      let countdownText = "";
-      
-      if (isFreeBox) {
-        const canClaim = !state.lastFreeBoxClaimTime || Date.now() >= (state.lastFreeBoxClaimTime + box.cooldown);
-        canOpen = canClaim;
-        
-        if (!canClaim && state.lastFreeBoxClaimTime) {
-          const nextClaimTime = state.lastFreeBoxClaimTime + box.cooldown;
-          const timeRemaining = Math.max(0, nextClaimTime - Date.now());
-          const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
-          const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
-          const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
-          countdownText = `${hours}h ${minutes}m ${seconds}s`;
-        }
-      } else {
-        canOpen = true; // Paid boxes can always be opened
-      }
-      
       return `
-        <div class="surprise-box-card" style="animation-delay: ${index * 0.1}s;">
+        <div class="surprise-box-card box-${box.id}" style="animation-delay: ${index * 0.1}s;">
+          <div class="surprise-box-icon">${getBoxIcon(box.id)}</div>
           <div class="surprise-box-header">
             <div class="surprise-box-name">${box.name}</div>
-            ${!isFreeBox ? `<div class="surprise-box-price">${box.price} BNB</div>` : ''}
+            <div class="surprise-box-price">${box.price} BNB</div>
           </div>
           <div class="surprise-box-description">${box.description}</div>
           <div class="surprise-box-actions">
-            ${getSurpriseBoxButton(box, canOpen, countdownText)}
+            ${getSurpriseBoxButton(box, true, "")}
           </div>
         </div>
       `;
     })
     .join("");
 
-  // Add event listeners
+  // Render free box separately (centered)
+  if (freeBoxContainer && freeBox) {
+    let canOpen = false;
+    let countdownText = "";
+    
+    const canClaim = !state.lastFreeBoxClaimTime || Date.now() >= (state.lastFreeBoxClaimTime + freeBox.cooldown);
+    canOpen = canClaim;
+    
+    if (!canClaim && state.lastFreeBoxClaimTime) {
+      const nextClaimTime = state.lastFreeBoxClaimTime + freeBox.cooldown;
+      const timeRemaining = Math.max(0, nextClaimTime - Date.now());
+      const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+      const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
+      countdownText = `${hours}h ${minutes}m ${seconds}s`;
+    }
+    
+    freeBoxContainer.innerHTML = `
+      <div class="surprise-box-card box-free free-box-featured" style="max-width: 400px; width: 100%;">
+        <div class="surprise-box-icon">${getBoxIcon(freeBox.id)}</div>
+        <div class="surprise-box-header">
+          <div class="surprise-box-name">${freeBox.name}</div>
+        </div>
+        <div class="surprise-box-description">${freeBox.description}</div>
+        <div class="surprise-box-actions">
+          ${getSurpriseBoxButton(freeBox, canOpen, countdownText)}
+        </div>
+      </div>
+    `;
+  }
+
+  // Add event listeners for all boxes
   state.surpriseBoxes.forEach((box) => {
     const btn = document.getElementById(`box-btn-${box.id}`);
     if (btn) {
@@ -1051,7 +1104,6 @@ function renderSurpriseBoxes() {
   });
   
   // Update countdown for free box
-  const freeBox = state.surpriseBoxes.find(b => b.isFree);
   if (freeBox && state.lastFreeBoxClaimTime) {
     const nextClaimTime = state.lastFreeBoxClaimTime + freeBox.cooldown;
     const timeRemaining = Math.max(0, nextClaimTime - Date.now());

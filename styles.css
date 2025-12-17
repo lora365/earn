@@ -1225,6 +1225,61 @@ body::before {
   text-align: center;
 }
 
+.surprise-box-icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 16px;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+}
+
+.surprise-box-icon svg {
+  width: 80px;
+  height: 80px;
+}
+
+/* Box-specific styles */
+.surprise-box-card.box-bronze {
+  border-color: #cd7f32;
+}
+
+.surprise-box-card.box-bronze:hover {
+  border-color: #b87333;
+  box-shadow: 0 8px 24px rgba(205, 127, 50, 0.4);
+}
+
+.surprise-box-card.box-silver {
+  border-color: #c0c0c0;
+}
+
+.surprise-box-card.box-silver:hover {
+  border-color: #e8e8e8;
+  box-shadow: 0 8px 24px rgba(192, 192, 192, 0.4);
+}
+
+.surprise-box-card.box-gold {
+  border-color: #ffd700;
+}
+
+.surprise-box-card.box-gold:hover {
+  border-color: #ffed4e;
+  box-shadow: 0 8px 24px rgba(255, 215, 0, 0.4);
+}
+
+.surprise-box-card.box-free {
+  border-color: #4a90e2;
+}
+
+.surprise-box-card.box-free:hover {
+  border-color: #6ba3e8;
+  box-shadow: 0 8px 24px rgba(74, 144, 226, 0.4);
+}
+
+.free-box-featured {
+  border-width: 3px;
+  box-shadow: 0 4px 16px rgba(74, 144, 226, 0.2);
+}
+
 .surprise-box-card::before {
   content: "";
   position: absolute;
