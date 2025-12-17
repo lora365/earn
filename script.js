@@ -51,7 +51,7 @@ let state = {
       xp: 200,
       status: "pending",
       action: "share",
-      actionUrl: "https://x.com/resilora_xyz",
+      actionUrl: "https://x.com/intent/tweet?text=" + encodeURIComponent("Check out @resilora_xyz - an amazing AI DeFi ecosystem powered by LORA on BNB Chain! 🚀"),
     },
     {
       id: 5,
