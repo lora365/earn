@@ -335,13 +335,15 @@ function updateWalletUI() {
   const navLinks = document.querySelector(".nav-links");
 
   if (state.walletConnected) {
-    walletInfo.style.display = "flex";
-    walletAddress.textContent = `${state.walletAddress.slice(0, 6)}...${state.walletAddress.slice(-4)}`;
-    connectBtn.style.display = "none";
+    if (walletInfo) walletInfo.style.display = "flex";
+    if (walletAddress && state.walletAddress) {
+      walletAddress.textContent = `${state.walletAddress.slice(0, 6)}...${state.walletAddress.slice(-4)}`;
+    }
+    if (connectBtn) connectBtn.style.display = "none";
     if (navLinks) navLinks.style.display = "flex";
   } else {
-    walletInfo.style.display = "none";
-    connectBtn.style.display = "block";
+    if (walletInfo) walletInfo.style.display = "none";
+    if (connectBtn) connectBtn.style.display = "block";
     if (navLinks) navLinks.style.display = "none";
   }
 }
@@ -376,12 +378,13 @@ async function connectXAccount() {
 
 function updateXStatus() {
   const xStatus = document.getElementById("xStatus");
-  if (state.xConnected) {
+  if (state.xConnected && xStatus) {
     xStatus.innerHTML = `
       <div class="status-indicator connected"></div>
       <span>Connected</span>
     `;
-    document.getElementById("connectXBtn").style.display = "none";
+    const connectXBtn = document.getElementById("connectXBtn");
+    if (connectXBtn) connectXBtn.style.display = "none";
   }
 }
 
@@ -697,11 +700,13 @@ let pendingFeeType = null;
 function showFeeModal(type, callback) {
   pendingFeeType = type;
   pendingFeeCallback = callback;
-  document.getElementById("feeModal").style.display = "flex";
+  const feeModal = document.getElementById("feeModal");
+  if (feeModal) feeModal.style.display = "flex";
 }
 
 function cancelFeePayment() {
-  document.getElementById("feeModal").style.display = "none";
+  const feeModal = document.getElementById("feeModal");
+  if (feeModal) feeModal.style.display = "none";
   pendingFeeCallback = null;
   pendingFeeType = null;
 }
@@ -714,7 +719,8 @@ async function confirmFeePayment() {
 
   try {
     showLoading(true);
-    document.getElementById("feeModal").style.display = "none";
+    const feeModal = document.getElementById("feeModal");
+    if (feeModal) feeModal.style.display = "none";
 
     // Convert fee to Wei
     const feeWei = (parseFloat(CONFIG.FEE_AMOUNT) * 1e18).toString(16);
@@ -758,7 +764,7 @@ async function waitForTransaction(txHash) {
 // UI Helper Functions
 function showStep(stepId) {
   document.querySelectorAll(".step-section").forEach((section) => {
-    section.style.display = "none";
+    if (section) section.style.display = "none";
   });
   const step = document.getElementById(stepId);
   if (step) {
@@ -767,6 +773,9 @@ function showStep(stepId) {
 }
 
 function showLoading(show) {
-  document.getElementById("loadingOverlay").style.display = show ? "flex" : "none";
+  const loadingOverlay = document.getElementById("loadingOverlay");
+  if (loadingOverlay) {
+    loadingOverlay.style.display = show ? "flex" : "none";
+  }
 }
 
