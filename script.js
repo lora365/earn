@@ -714,10 +714,32 @@ function loadStateFromLocalStorage() {
         state.walletConnected = parsed.walletConnected;
       }
       
-      // Load tasks
-      if (parsed.tasks) {
-        state.tasks = parsed.tasks;
+      // Load tasks - merge saved task statuses with current task list
+      if (parsed.tasks && Array.isArray(parsed.tasks)) {
+        // Create a map of saved tasks by ID
+        const savedTasksMap = new Map(parsed.tasks.map(task => [task.id, task]));
         
+        // Update state.tasks with saved statuses, but keep all current tasks
+        state.tasks = state.tasks.map(currentTask => {
+          const savedTask = savedTasksMap.get(currentTask.id);
+          if (savedTask) {
+            // Merge: keep current task structure, but update status
+            return {
+              ...currentTask,
+              status: savedTask.status
+            };
+          }
+          return currentTask;
+        });
+        
+        // Add any new tasks that exist in current state but not in saved state
+        const currentTaskIds = new Set(state.tasks.map(t => t.id));
+        parsed.tasks.forEach(savedTask => {
+          if (!currentTaskIds.has(savedTask.id)) {
+            // This shouldn't happen, but handle it just in case
+            state.tasks.push(savedTask);
+          }
+        });
       }
       
       // Load XP data
