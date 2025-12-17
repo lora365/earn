@@ -629,8 +629,14 @@ async function handleTaskAction(task) {
     // In a real implementation, this would verify the task completion via X API
     await new Promise((resolve) => setTimeout(resolve, 1000));
     
-    // Update task status
-    task.status = "completed";
+    // Find and update task in state.tasks array by ID
+    const taskIndex = state.tasks.findIndex(t => t.id === task.id);
+    if (taskIndex !== -1) {
+      state.tasks[taskIndex].status = "completed";
+    } else {
+      // Fallback: update the task object directly
+      task.status = "completed";
+    }
     
     // Update UI
     updateTotalXP();
