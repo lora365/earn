@@ -16,6 +16,7 @@ let state = {
   xConnected: false,
   totalXP: 0,
   timeBasedTotalXP: 0,
+  surpriseBoxTotalXP: 0,
   lastClaimTime: null,
   nextClaimTime: null,
   serverTimeOffset: 0,
@@ -36,7 +37,7 @@ let state = {
       id: "bronze",
       name: "Bronze LORA Box",
       description: "500-1000 XP guaranteed",
-      price: 0.0005,
+      price: 0.000012,
       isFree: false,
       xpRange: { min: 500, max: 1000 },
     },
@@ -985,6 +986,9 @@ function calculateTotalXP() {
   if (state.timeBasedTotalXP) {
     totalXP += state.timeBasedTotalXP;
   }
+  if (state.surpriseBoxTotalXP) {
+    totalXP += state.surpriseBoxTotalXP;
+  }
   return totalXP;
 }
 
@@ -1124,7 +1128,7 @@ async function handleSurpriseBoxOpen(box) {
       
       // Update state
       state.lastFreeBoxClaimTime = Date.now();
-      state.totalXP += xpReward;
+      state.surpriseBoxTotalXP += xpReward;
       
       // Update UI
       updateTotalXP();
@@ -1133,7 +1137,7 @@ async function handleSurpriseBoxOpen(box) {
       await updateUserOnServer();
       
       showLoading(false);
-      alert(isRare ? `🎉 Rare Reward! You earned ${xpReward} XP!` : `You earned ${xpReward} XP!`);
+      showRewardModal(xpReward, box.name, isRare);
       return;
     }
     
@@ -1158,7 +1162,7 @@ async function handleSurpriseBoxOpen(box) {
     const xpReward = calculateBoxXP(box);
     
     // Update state
-    state.totalXP += xpReward;
+    state.surpriseBoxTotalXP += xpReward;
     
     // Update UI
     updateTotalXP();
@@ -1167,7 +1171,7 @@ async function handleSurpriseBoxOpen(box) {
     await updateUserOnServer();
     
     showLoading(false);
-    alert(`🎁 You opened ${box.name} and earned ${xpReward} XP!`);
+    showRewardModal(xpReward, box.name, false);
   } catch (error) {
     console.error("Error opening surprise box:", error);
     showLoading(false);
@@ -1198,6 +1202,7 @@ function saveStateToLocalStorage() {
         tasks: state.tasks,
         totalXP: state.totalXP,
         timeBasedTotalXP: state.timeBasedTotalXP || 0,
+        surpriseBoxTotalXP: state.surpriseBoxTotalXP || 0,
         lastClaimTime: state.lastClaimTime,
         nextClaimTime: state.nextClaimTime,
         serverTimeOffset: state.serverTimeOffset,
@@ -1261,6 +1266,9 @@ function loadStateFromLocalStorage(overrideWalletState = false) {
         if (parsed.totalXP !== undefined) {
           state.totalXP = parsed.totalXP;
         }
+        if (parsed.surpriseBoxTotalXP !== undefined) {
+          state.surpriseBoxTotalXP = parsed.surpriseBoxTotalXP;
+        }
         
         // Load time-based claim data
         if (parsed.lastClaimTime) {
@@ -1283,6 +1291,7 @@ function loadStateFromLocalStorage(overrideWalletState = false) {
         }));
         state.totalXP = 0;
         state.timeBasedTotalXP = 0;
+        state.surpriseBoxTotalXP = 0;
         state.lastClaimTime = null;
         state.nextClaimTime = null;
         state.serverTimeOffset = 0;
@@ -1414,6 +1423,71 @@ function showLoading(show) {
   const loadingOverlay = document.getElementById("loadingOverlay");
   if (loadingOverlay) {
     loadingOverlay.style.display = show ? "flex" : "none";
+  }
+}
+
+function showRewardModal(xpReward, boxName, isRare) {
+  // Create reward modal if it doesn't exist
+  let rewardModal = document.getElementById("rewardModal");
+  if (!rewardModal) {
+    rewardModal = document.createElement("div");
+    rewardModal.id = "rewardModal";
+    rewardModal.className = "reward-modal";
+    rewardModal.innerHTML = `
+      <div class="reward-modal-content">
+        <div class="confetti-container" id="confettiContainer"></div>
+        <div class="reward-icon">🎁</div>
+        <h2 class="reward-title" id="rewardTitle"></h2>
+        <div class="reward-xp" id="rewardXP"></div>
+        <div class="reward-box-name" id="rewardBoxName"></div>
+        <button class="btn-primary" id="closeRewardModal">Awesome!</button>
+      </div>
+    `;
+    document.body.appendChild(rewardModal);
+    
+    // Close button event
+    document.getElementById("closeRewardModal").addEventListener("click", () => {
+      rewardModal.style.display = "none";
+      const confettiContainer = document.getElementById("confettiContainer");
+      if (confettiContainer) {
+        confettiContainer.innerHTML = "";
+      }
+    });
+  }
+  
+  // Update content
+  const title = document.getElementById("rewardTitle");
+  const xpEl = document.getElementById("rewardXP");
+  const boxNameEl = document.getElementById("rewardBoxName");
+  
+  if (title) title.textContent = isRare ? "🎉 Rare Reward!" : "Congratulations!";
+  if (xpEl) xpEl.textContent = `+${xpReward} XP`;
+  if (boxNameEl) boxNameEl.textContent = boxName;
+  
+  // Show modal
+  rewardModal.style.display = "flex";
+  
+  // Create confetti animation
+  createConfetti();
+}
+
+function createConfetti() {
+  const confettiContainer = document.getElementById("confettiContainer");
+  if (!confettiContainer) return;
+  
+  confettiContainer.innerHTML = "";
+  
+  const colors = ['#f6c90e', '#ffd029', '#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24'];
+  const confettiCount = 50;
+  
+  for (let i = 0; i < confettiCount; i++) {
+    const confetti = document.createElement("div");
+    confetti.className = "confetti";
+    confetti.style.left = Math.random() * 100 + "%";
+    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    confetti.style.animationDelay = Math.random() * 0.5 + "s";
+    confetti.style.animationDuration = (Math.random() * 2 + 2) + "s";
+    confettiContainer.appendChild(confetti);
   }
 }
 
