@@ -353,28 +353,25 @@ async function connectXAccount() {
     return;
   }
 
-  // Show fee modal
-  showFeeModal("x_connection", async () => {
-    try {
-      showLoading(true);
-      
-      // In a real implementation, this would use X OAuth
-      // For now, we'll simulate it
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      state.xConnected = true;
-      updateXStatus();
-      saveStateToLocalStorage();
-      showStep("stepTasks");
-      showLoading(false);
-      // Fetch leaderboard after X connection
-      fetchLeaderboard();
-    } catch (error) {
-      console.error("Error connecting X account:", error);
-      showLoading(false);
-      alert("Failed to connect X account. Please try again.");
-    }
-  });
+  try {
+    showLoading(true);
+    
+    // In a real implementation, this would use X OAuth
+    // For now, we'll simulate it
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    
+    state.xConnected = true;
+    updateXStatus();
+    saveStateToLocalStorage();
+    showStep("stepTasks");
+    showLoading(false);
+    // Fetch leaderboard after X connection
+    fetchLeaderboard();
+  } catch (error) {
+    console.error("Error connecting X account:", error);
+    showLoading(false);
+    alert("Failed to connect X account. Please try again.");
+  }
 }
 
 function updateXStatus() {
