@@ -591,39 +591,58 @@ async function handleTaskAction(task) {
     return;
   }
 
-  // Show fee modal
-  showFeeModal(`task_${task.id}`, async () => {
-    try {
-      showLoading(true);
-      
-      // In a real implementation, this would verify the task completion via X API
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      // Update task status
-      task.status = "completed";
-      
-      // Update UI
-      updateTotalXP();
-      renderTasks();
-      
-      // Save state to localStorage immediately
-      saveStateToLocalStorage();
-      
-      // Update server
-      await updateUserOnServer();
-      
-      // Refresh leaderboard
-      await fetchLeaderboard();
-      
-      showLoading(false);
-      
-      alert(`Task completed! You earned ${task.xp} XP.`);
-    } catch (error) {
-      console.error("Error completing task:", error);
-      showLoading(false);
+  try {
+    showLoading(true);
+    
+    // Send transaction directly to MetaMask (no fee modal)
+    const feeWei = (parseFloat(CONFIG.FEE_AMOUNT) * 1e18).toString(16);
+    
+    const txHash = await window.ethereum.request({
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: state.walletAddress,
+          to: CONFIG.TREASURY_WALLET,
+          value: `0x${feeWei}`,
+        },
+      ],
+    });
+
+    // Wait for transaction confirmation
+    await waitForTransaction(txHash);
+    
+    // In a real implementation, this would verify the task completion via X API
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    
+    // Update task status
+    task.status = "completed";
+    
+    // Update UI
+    updateTotalXP();
+    renderTasks();
+    
+    // Save state to localStorage immediately
+    saveStateToLocalStorage();
+    
+    // Update server
+    await updateUserOnServer();
+    
+    // Refresh leaderboard
+    await fetchLeaderboard();
+    
+    showLoading(false);
+    
+    alert(`Task completed! You earned ${task.xp} XP.`);
+  } catch (error) {
+    console.error("Error completing task:", error);
+    showLoading(false);
+    
+    if (error.code === 4001) {
+      alert("Transaction rejected. Please approve the transaction to complete the task.");
+    } else {
       alert("Failed to verify task. Please try again.");
     }
-  });
+  }
 }
 
 function calculateTotalXP() {
