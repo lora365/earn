@@ -219,17 +219,17 @@ async function connectWallet() {
       showStep("stepTasks");
       // Fetch leaderboard after wallet connection
       fetchLeaderboard();
-    }
+      
+      // Check network
+      const chainId = await ethereum.request({ method: "eth_chainId" });
+      if (parseInt(chainId, 16) !== CONFIG.CHAIN_ID) {
+        await switchNetwork();
+      }
 
-    // Check network
-    const chainId = await ethereum.request({ method: "eth_chainId" });
-    if (parseInt(chainId, 16) !== CONFIG.CHAIN_ID) {
-      await switchNetwork();
+      // Listen for account changes
+      ethereum.on("accountsChanged", handleAccountsChanged);
+      ethereum.on("chainChanged", handleChainChanged);
     }
-
-    // Listen for account changes
-    ethereum.on("accountsChanged", handleAccountsChanged);
-    ethereum.on("chainChanged", handleChainChanged);
 
     showLoading(false);
   } catch (error) {
