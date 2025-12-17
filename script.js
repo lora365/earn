@@ -158,8 +158,17 @@ function initializeApp() {
 
 // Wallet Functions
 async function checkWalletConnection() {
-  // Load saved state from localStorage first
-  loadStateFromLocalStorage();
+  // Load general state first to get last connected wallet address
+  const savedState = localStorage.getItem('earnState');
+  if (savedState) {
+    try {
+      const parsed = JSON.parse(savedState);
+      // Note: We don't store walletAddress in general state anymore,
+      // but we check if there's any wallet-specific state saved
+    } catch (e) {
+      // Ignore parse errors
+    }
+  }
   
   // If we have a saved wallet address, try to reconnect silently
   if (state.walletAddress && typeof window.ethereum !== "undefined") {
@@ -170,19 +179,21 @@ async function checkWalletConnection() {
         state.walletConnected = true;
         state.walletAddress = accounts[0];
         
-        // Ensure state is fully loaded
+        // Load wallet-specific state
         loadStateFromLocalStorage();
         
         updateWalletUI();
         showStep("stepTasks");
         
         // Set up event listeners
-        window.ethereum.on("accountsChanged", handleAccountsChanged);
-        window.ethereum.on("chainChanged", handleChainChanged);
+        if (window.ethereum.on) {
+          window.ethereum.on("accountsChanged", handleAccountsChanged);
+          window.ethereum.on("chainChanged", handleChainChanged);
+        }
       } else {
-        // Saved wallet is not connected, but keep tasks and XP data
+        // Saved wallet is not connected
         state.walletConnected = false;
-        // Don't clear walletAddress - keep it for when user reconnects
+        state.walletAddress = null;
         updateWalletUI();
         showStep("stepWallet");
       }
@@ -196,6 +207,9 @@ async function checkWalletConnection() {
     }
   } else {
     // No saved wallet, show connection screen
+    state.walletConnected = false;
+    state.walletAddress = null;
+    updateWalletUI();
     showStep("stepWallet");
   }
 }
@@ -274,29 +288,14 @@ async function connectWallet() {
     if (accounts && accounts.length > 0) {
       const connectedAddress = accounts[0];
       
-      // Load saved state from localStorage first
-      loadStateFromLocalStorage();
-      
-      // Check if this is the same wallet that was previously connected
-      // If same wallet, restore all progress. If different, reset tasks.
-      if (state.walletAddress && state.walletAddress.toLowerCase() !== connectedAddress.toLowerCase()) {
-        // Different wallet - reset tasks but keep structure
-        state.tasks = state.tasks.map(task => ({
-          ...task,
-          status: "pending"
-        }));
-        state.totalXP = 0;
-        state.timeBasedTotalXP = 0;
-        state.lastClaimTime = null;
-        state.nextClaimTime = null;
-        state.serverTimeOffset = 0;
-      }
-      
-      // Update wallet connection
+      // Update wallet connection first
       state.walletConnected = true;
       state.walletAddress = connectedAddress;
       
-      // Save state after loading/updating
+      // Load saved state for this specific wallet
+      loadStateFromLocalStorage();
+      
+      // Save state after loading
       saveStateToLocalStorage();
       
       updateWalletUI();
@@ -683,18 +682,27 @@ function updateTotalXP() {
 // LocalStorage Functions
 function saveStateToLocalStorage() {
   try {
-    const stateToSave = {
-      walletAddress: state.walletAddress,
+    // Save wallet-agnostic state (for general app state)
+    const generalState = {
       walletConnected: state.walletConnected,
-      xConnected: state.xConnected,
-      tasks: state.tasks,
-      totalXP: state.totalXP,
-      timeBasedTotalXP: state.timeBasedTotalXP || 0,
-      lastClaimTime: state.lastClaimTime,
-      nextClaimTime: state.nextClaimTime,
-      serverTimeOffset: state.serverTimeOffset
+      walletAddress: state.walletAddress, // Save last connected wallet address
+      xConnected: state.xConnected
     };
-    localStorage.setItem('earnState', JSON.stringify(stateToSave));
+    localStorage.setItem('earnState', JSON.stringify(generalState));
+    
+    // Save wallet-specific state (tasks, XP, etc.) keyed by wallet address
+    if (state.walletAddress) {
+      const walletKey = `earnState_${state.walletAddress.toLowerCase()}`;
+      const walletState = {
+        tasks: state.tasks,
+        totalXP: state.totalXP,
+        timeBasedTotalXP: state.timeBasedTotalXP || 0,
+        lastClaimTime: state.lastClaimTime,
+        nextClaimTime: state.nextClaimTime,
+        serverTimeOffset: state.serverTimeOffset
+      };
+      localStorage.setItem(walletKey, JSON.stringify(walletState));
+    }
   } catch (error) {
     console.error("Error saving state to localStorage:", error);
   }
@@ -702,63 +710,71 @@ function saveStateToLocalStorage() {
 
 function loadStateFromLocalStorage() {
   try {
+    // Load general state
     const savedState = localStorage.getItem('earnState');
     if (savedState) {
       const parsed = JSON.parse(savedState);
-      
-      // Load wallet info
-      if (parsed.walletAddress) {
-        state.walletAddress = parsed.walletAddress;
-      }
       if (parsed.walletConnected !== undefined) {
         state.walletConnected = parsed.walletConnected;
       }
+    }
+    
+    // Load wallet-specific state only if wallet is connected
+    if (state.walletAddress) {
+      const walletKey = `earnState_${state.walletAddress.toLowerCase()}`;
+      const walletState = localStorage.getItem(walletKey);
       
-      // Load tasks - merge saved task statuses with current task list
-      if (parsed.tasks && Array.isArray(parsed.tasks)) {
-        // Create a map of saved tasks by ID
-        const savedTasksMap = new Map(parsed.tasks.map(task => [task.id, task]));
+      if (walletState) {
+        const parsed = JSON.parse(walletState);
         
-        // Update state.tasks with saved statuses, but keep all current tasks
-        state.tasks = state.tasks.map(currentTask => {
-          const savedTask = savedTasksMap.get(currentTask.id);
-          if (savedTask) {
-            // Merge: keep current task structure, but update status
-            return {
-              ...currentTask,
-              status: savedTask.status
-            };
-          }
-          return currentTask;
-        });
+        // Load tasks - merge saved task statuses with current task list
+        if (parsed.tasks && Array.isArray(parsed.tasks)) {
+          // Create a map of saved tasks by ID
+          const savedTasksMap = new Map(parsed.tasks.map(task => [task.id, task]));
+          
+          // Update state.tasks with saved statuses, but keep all current tasks
+          state.tasks = state.tasks.map(currentTask => {
+            const savedTask = savedTasksMap.get(currentTask.id);
+            if (savedTask) {
+              // Merge: keep current task structure, but update status
+              return {
+                ...currentTask,
+                status: savedTask.status
+              };
+            }
+            return currentTask;
+          });
+        }
         
-        // Add any new tasks that exist in current state but not in saved state
-        const currentTaskIds = new Set(state.tasks.map(t => t.id));
-        parsed.tasks.forEach(savedTask => {
-          if (!currentTaskIds.has(savedTask.id)) {
-            // This shouldn't happen, but handle it just in case
-            state.tasks.push(savedTask);
-          }
-        });
-      }
-      
-      // Load XP data
-      if (parsed.timeBasedTotalXP !== undefined) {
-        state.timeBasedTotalXP = parsed.timeBasedTotalXP;
-      }
-      if (parsed.totalXP !== undefined) {
-        state.totalXP = parsed.totalXP;
-      }
-      
-      // Load time-based claim data
-      if (parsed.lastClaimTime) {
-        state.lastClaimTime = parsed.lastClaimTime;
-      }
-      if (parsed.nextClaimTime) {
-        state.nextClaimTime = parsed.nextClaimTime;
-      }
-      if (parsed.serverTimeOffset !== undefined) {
-        state.serverTimeOffset = parsed.serverTimeOffset;
+        // Load XP data
+        if (parsed.timeBasedTotalXP !== undefined) {
+          state.timeBasedTotalXP = parsed.timeBasedTotalXP;
+        }
+        if (parsed.totalXP !== undefined) {
+          state.totalXP = parsed.totalXP;
+        }
+        
+        // Load time-based claim data
+        if (parsed.lastClaimTime) {
+          state.lastClaimTime = parsed.lastClaimTime;
+        }
+        if (parsed.nextClaimTime) {
+          state.nextClaimTime = parsed.nextClaimTime;
+        }
+        if (parsed.serverTimeOffset !== undefined) {
+          state.serverTimeOffset = parsed.serverTimeOffset;
+        }
+      } else {
+        // No saved state for this wallet - reset to initial state
+        state.tasks = state.tasks.map(task => ({
+          ...task,
+          status: "pending"
+        }));
+        state.totalXP = 0;
+        state.timeBasedTotalXP = 0;
+        state.lastClaimTime = null;
+        state.nextClaimTime = null;
+        state.serverTimeOffset = 0;
       }
       
       // Update UI
