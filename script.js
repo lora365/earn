@@ -21,6 +21,7 @@ let state = {
   nextClaimTime: null,
   serverTimeOffset: 0,
   lastFreeBoxClaimTime: null,
+  history: [], // Array to store task and box completion history
   surpriseBoxes: [
     {
       id: "free",
@@ -212,6 +213,9 @@ async function initializeApp() {
   
   // Render surprise boxes
   renderSurpriseBoxes();
+  
+  // Render history
+  renderHistory();
   
   // Ensure wallet UI is updated after everything is loaded
   updateWalletUI();
@@ -872,9 +876,18 @@ async function handleTaskAction(task) {
       // Update time-based XP
       state.timeBasedTotalXP += task.xp;
       
+      // Add to history
+      state.history.unshift({
+        type: "task",
+        name: task.title,
+        xp: task.xp,
+        timestamp: Date.now()
+      });
+      
       // Update UI
       updateTotalXP();
       renderTasks();
+      renderHistory();
       
       // Save state to localStorage immediately
       saveStateToLocalStorage();
@@ -916,9 +929,18 @@ async function handleTaskAction(task) {
       task.status = "completed";
     }
     
+    // Add to history
+    state.history.unshift({
+      type: "task",
+      name: task.title,
+      xp: task.xp,
+      timestamp: Date.now()
+    });
+    
     // Update UI
     updateTotalXP();
     renderTasks();
+    renderHistory();
     
     // Save state to localStorage immediately
     saveStateToLocalStorage();
@@ -1117,6 +1139,62 @@ function getSurpriseBoxButton(box, canOpen, countdownText = "") {
   }
 }
 
+function renderHistory() {
+  const historyContainer = document.getElementById("historyContainer");
+  if (!historyContainer) return;
+  
+  // Initialize history if not exists
+  if (!state.history) {
+    state.history = [];
+  }
+  
+  if (state.history.length === 0) {
+    historyContainer.innerHTML = `
+      <div class="history-empty">
+        <p>No history yet. Complete tasks or open boxes to see your activity here.</p>
+      </div>
+    `;
+    return;
+  }
+  
+  // Sort history by timestamp (newest first)
+  const sortedHistory = [...state.history].sort((a, b) => b.timestamp - a.timestamp);
+  
+  historyContainer.innerHTML = sortedHistory
+    .map((entry, index) => {
+      const date = new Date(entry.timestamp);
+      const formattedDate = date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      const icon = entry.type === "task" 
+        ? "✅" 
+        : entry.boxType === "free" 
+          ? "❤️" 
+          : entry.boxType === "bronze"
+            ? "📦"
+            : entry.boxType === "silver"
+              ? "🎁"
+              : "💎";
+      
+      return `
+        <div class="history-item" style="animation-delay: ${index * 0.05}s;">
+          <div class="history-icon">${icon}</div>
+          <div class="history-content">
+            <div class="history-name">${entry.name}</div>
+            <div class="history-date">${formattedDate}</div>
+          </div>
+          <div class="history-xp">+${entry.xp} XP</div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
 function calculateBoxXP(box) {
   // Check if it's a rare reward (for free box)
   if (box.isFree && Math.random() < box.rareChance) {
@@ -1158,9 +1236,19 @@ async function handleSurpriseBoxOpen(box) {
       state.lastFreeBoxClaimTime = Date.now();
       state.surpriseBoxTotalXP += xpReward;
       
+      // Add to history
+      state.history.unshift({
+        type: "box",
+        name: box.name,
+        xp: xpReward,
+        boxType: box.id,
+        timestamp: Date.now()
+      });
+      
       // Update UI
       updateTotalXP();
       renderSurpriseBoxes();
+      renderHistory();
       saveStateToLocalStorage();
       await updateUserOnServer();
       
@@ -1192,9 +1280,19 @@ async function handleSurpriseBoxOpen(box) {
     // Update state
     state.surpriseBoxTotalXP += xpReward;
     
+    // Add to history
+    state.history.unshift({
+      type: "box",
+      name: box.name,
+      xp: xpReward,
+      boxType: box.id,
+      timestamp: Date.now()
+    });
+    
     // Update UI
     updateTotalXP();
     renderSurpriseBoxes();
+    renderHistory();
     saveStateToLocalStorage();
     await updateUserOnServer();
     
@@ -1234,7 +1332,8 @@ function saveStateToLocalStorage() {
         lastClaimTime: state.lastClaimTime,
         nextClaimTime: state.nextClaimTime,
         serverTimeOffset: state.serverTimeOffset,
-        lastFreeBoxClaimTime: state.lastFreeBoxClaimTime
+        lastFreeBoxClaimTime: state.lastFreeBoxClaimTime,
+        history: state.history || []
       };
       localStorage.setItem(walletKey, JSON.stringify(walletState));
     }
@@ -1310,6 +1409,11 @@ function loadStateFromLocalStorage(overrideWalletState = false) {
         }
         if (parsed.lastFreeBoxClaimTime) {
           state.lastFreeBoxClaimTime = parsed.lastFreeBoxClaimTime;
+        }
+        
+        // Load history
+        if (parsed.history && Array.isArray(parsed.history)) {
+          state.history = parsed.history;
         }
       } else {
         // No saved state for this wallet - reset to initial state
