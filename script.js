@@ -142,11 +142,20 @@ async function checkWalletConnection() {
       if (accounts.length > 0) {
         state.walletConnected = true;
         state.walletAddress = accounts[0];
+        
+        // Load saved state from localStorage
+        loadStateFromLocalStorage();
+        
+        // Update UI based on connection state
         updateWalletUI();
-        loadStateFromLocalStorage(); // Load user's saved state
-        showStep("stepX");
-        // Fetch leaderboard after wallet connection
-        fetchLeaderboard();
+        
+        // Show appropriate step based on X connection status
+        if (state.xConnected) {
+          showStep("stepTasks");
+          fetchLeaderboard();
+        } else {
+          showStep("stepX");
+        }
       }
     } catch (error) {
       console.error("Error checking wallet:", error);
@@ -318,9 +327,26 @@ function disconnectWallet() {
   state.walletConnected = false;
   state.walletAddress = null;
   state.xConnected = false;
+  
+  // Clear localStorage
+  localStorage.removeItem('earnState');
+  
+  // Reset tasks to initial state
+  state.tasks = state.tasks.map(task => ({
+    ...task,
+    status: "pending"
+  }));
+  state.totalXP = 0;
+  state.timeBasedTotalXP = 0;
+  state.lastClaimTime = null;
+  state.nextClaimTime = null;
+  state.serverTimeOffset = 0;
+  
   updateWalletUI();
   showStep("stepWallet");
   renderTasks();
+  updateTotalXP();
+  
   // Clear leaderboard or show empty state
   const leaderboardList = document.getElementById('leaderboardList');
   if (leaderboardList) {
@@ -340,7 +366,8 @@ function updateWalletUI() {
       walletAddress.textContent = `${state.walletAddress.slice(0, 6)}...${state.walletAddress.slice(-4)}`;
     }
     if (connectBtn) connectBtn.style.display = "none";
-    if (navLinks) navLinks.style.display = "flex";
+    // Only show nav links if both wallet and X are connected
+    if (navLinks) navLinks.style.display = (state.walletConnected && state.xConnected) ? "flex" : "none";
   } else {
     if (walletInfo) walletInfo.style.display = "none";
     if (connectBtn) connectBtn.style.display = "block";
@@ -355,11 +382,16 @@ async function connectXAccount() {
     return;
   }
 
+  // Redirect to X OAuth or X profile
+  // For now, open X profile in new tab
+  window.open("https://x.com/resilora_xyz", "_blank");
+  
+  // After user returns, they can verify connection
+  // In a real implementation, this would use X OAuth callback
   try {
     showLoading(true);
     
-    // In a real implementation, this would use X OAuth
-    // For now, we'll simulate it
+    // Simulate X connection process
     await new Promise((resolve) => setTimeout(resolve, 2000));
     
     state.xConnected = true;
@@ -386,6 +418,8 @@ function updateXStatus() {
     const connectXBtn = document.getElementById("connectXBtn");
     if (connectXBtn) connectXBtn.style.display = "none";
   }
+  // Update nav links visibility when X status changes
+  updateWalletUI();
 }
 
 // Task Functions
