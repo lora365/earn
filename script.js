@@ -267,13 +267,31 @@ async function connectWallet() {
     });
 
     if (accounts && accounts.length > 0) {
-      state.walletConnected = true;
-      state.walletAddress = accounts[0];
+      const connectedAddress = accounts[0];
       
-      // Load saved state from localStorage
+      // Load saved state from localStorage first
       loadStateFromLocalStorage();
       
-      // Save state after loading
+      // Check if this is the same wallet that was previously connected
+      // If same wallet, restore all progress. If different, reset tasks.
+      if (state.walletAddress && state.walletAddress.toLowerCase() !== connectedAddress.toLowerCase()) {
+        // Different wallet - reset tasks but keep structure
+        state.tasks = state.tasks.map(task => ({
+          ...task,
+          status: "pending"
+        }));
+        state.totalXP = 0;
+        state.timeBasedTotalXP = 0;
+        state.lastClaimTime = null;
+        state.nextClaimTime = null;
+        state.serverTimeOffset = 0;
+      }
+      
+      // Update wallet connection
+      state.walletConnected = true;
+      state.walletAddress = connectedAddress;
+      
+      // Save state after loading/updating
       saveStateToLocalStorage();
       
       updateWalletUI();
