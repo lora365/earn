@@ -98,6 +98,23 @@ function waitForMetaMask(maxWait = 3000) {
   });
 }
 
+// Global function to start timer when Open X is clicked
+window.startTaskTimer = function(taskId) {
+  const taskTimerKey = `taskTimer_${taskId}`;
+  localStorage.setItem(taskTimerKey, Date.now().toString());
+  
+  // Enable button after 5 seconds
+  setTimeout(() => {
+    const verifyBtn = document.getElementById(`task-btn-${taskId}`);
+    if (verifyBtn && verifyBtn.disabled) {
+      verifyBtn.disabled = false;
+      verifyBtn.style.opacity = "1";
+      verifyBtn.style.cursor = "pointer";
+      verifyBtn.title = "";
+    }
+  }, 5000);
+};
+
 // Initialize
 document.addEventListener("DOMContentLoaded", async () => {
   // Wait for MetaMask to be ready
@@ -668,18 +685,6 @@ function loadStateFromLocalStorage() {
       if (parsed.tasks) {
         state.tasks = parsed.tasks;
         
-        // Restore checkbox states for pending tasks
-        setTimeout(() => {
-          parsed.tasks.forEach(task => {
-            if (task.status === "pending") {
-              const checkbox = document.getElementById(`task-check-${task.id}`);
-              if (checkbox) {
-                checkbox.checked = false;
-                window.enableVerifyButton(task.id);
-              }
-            }
-          });
-        }, 100);
       }
       
       // Load XP data
