@@ -163,8 +163,12 @@ async function checkWalletConnection() {
   if (savedState) {
     try {
       const parsed = JSON.parse(savedState);
-      // Note: We don't store walletAddress in general state anymore,
-      // but we check if there's any wallet-specific state saved
+      if (parsed.walletAddress) {
+        state.walletAddress = parsed.walletAddress;
+      }
+      if (parsed.walletConnected !== undefined) {
+        state.walletConnected = parsed.walletConnected;
+      }
     } catch (e) {
       // Ignore parse errors
     }
