@@ -631,8 +631,6 @@ async function handleTaskAction(task) {
     await fetchLeaderboard();
     
     showLoading(false);
-    
-    alert(`Task completed! You earned ${task.xp} XP.`);
   } catch (error) {
     console.error("Error completing task:", error);
     showLoading(false);
