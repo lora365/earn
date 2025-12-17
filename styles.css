@@ -1285,3 +1285,140 @@ body::before {
   justify-content: center;
 }
 
+/* Reward Modal */
+.reward-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease;
+}
+
+.reward-modal-content {
+  background: var(--card);
+  backdrop-filter: blur(20px);
+  border: 2px solid var(--yellow);
+  border-radius: 24px;
+  padding: 48px;
+  text-align: center;
+  position: relative;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(246, 201, 14, 0.4);
+  animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+
+.confetti-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.confetti {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  top: -10px;
+  border-radius: 2px;
+  animation: confettiFall linear forwards;
+}
+
+@keyframes confettiFall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+.reward-icon {
+  font-size: 80px;
+  margin-bottom: 20px;
+  animation: bounce 0.6s ease 0.2s;
+}
+
+.reward-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 16px;
+  animation: slideUp 0.5s ease 0.3s both;
+}
+
+.reward-xp {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 56px;
+  font-weight: 700;
+  color: var(--yellow);
+  margin-bottom: 12px;
+  text-shadow: 0 0 20px rgba(246, 201, 14, 0.5);
+  animation: slideUp 0.5s ease 0.4s both;
+}
+
+.reward-box-name {
+  font-size: 18px;
+  color: var(--muted);
+  margin-bottom: 32px;
+  animation: slideUp 0.5s ease 0.5s both;
+}
+
+.reward-modal-content .btn-primary {
+  animation: slideUp 0.5s ease 0.6s both;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
