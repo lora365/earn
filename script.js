@@ -436,14 +436,26 @@ function updateWalletUI() {
   const connectBtn = document.getElementById("connectWalletBtn");
   const navLinks = document.querySelector(".nav-links");
 
+  console.log("updateWalletUI called", {
+    walletConnected: state.walletConnected,
+    walletAddress: state.walletAddress,
+    walletInfo: !!walletInfo,
+    walletAddressEl: !!walletAddress
+  });
+
   if (state.walletConnected && state.walletAddress) {
     if (walletInfo) {
       walletInfo.style.display = "flex";
       walletInfo.style.visibility = "visible";
+      walletInfo.style.opacity = "1";
+      console.log("Showing wallet info:", state.walletAddress);
     }
     if (walletAddress) {
-      walletAddress.textContent = `${state.walletAddress.slice(0, 6)}...${state.walletAddress.slice(-4)}`;
+      const addressText = `${state.walletAddress.slice(0, 6)}...${state.walletAddress.slice(-4)}`;
+      walletAddress.textContent = addressText;
       walletAddress.style.display = "inline-block";
+      walletAddress.style.visibility = "visible";
+      console.log("Setting wallet address text:", addressText);
     }
     if (connectBtn) connectBtn.style.display = "none";
     // Show nav links when wallet is connected
