@@ -163,6 +163,10 @@ async function checkWalletConnection() {
       if (accounts.length > 0 && accounts[0].toLowerCase() === state.walletAddress.toLowerCase()) {
         state.walletConnected = true;
         state.walletAddress = accounts[0];
+        
+        // Ensure state is fully loaded
+        loadStateFromLocalStorage();
+        
         updateWalletUI();
         showStep("stepTasks");
         fetchLeaderboard();
@@ -171,9 +175,9 @@ async function checkWalletConnection() {
         window.ethereum.on("accountsChanged", handleAccountsChanged);
         window.ethereum.on("chainChanged", handleChainChanged);
       } else {
-        // Saved wallet is not connected, clear state
+        // Saved wallet is not connected, but keep tasks and XP data
         state.walletConnected = false;
-        state.walletAddress = null;
+        // Don't clear walletAddress - keep it for when user reconnects
         updateWalletUI();
         showStep("stepWallet");
       }
@@ -382,22 +386,15 @@ async function disconnectWallet() {
     }
   }
   
+  // Save current state before disconnecting (to preserve tasks and XP)
+  const currentWalletAddress = state.walletAddress;
+  
   state.walletConnected = false;
   state.walletAddress = null;
   
-  // Clear localStorage
-  localStorage.removeItem('earnState');
-  
-  // Reset tasks to initial state
-  state.tasks = state.tasks.map(task => ({
-    ...task,
-    status: "pending"
-  }));
-  state.totalXP = 0;
-  state.timeBasedTotalXP = 0;
-  state.lastClaimTime = null;
-  state.nextClaimTime = null;
-  state.serverTimeOffset = 0;
+  // Don't clear localStorage - keep tasks and XP data
+  // Just update wallet connection status
+  saveStateToLocalStorage();
   
   updateWalletUI();
   showStep("stepWallet");
