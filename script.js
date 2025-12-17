@@ -39,7 +39,7 @@ let state = {
       id: "bronze",
       name: "Bronze LORA Box",
       description: "500-1000 XP guaranteed",
-      price: 0.000012,
+      price: 0.0005,
       isFree: false,
       xpRange: { min: 500, max: 1000 },
     },
