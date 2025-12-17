@@ -304,8 +304,11 @@ async function connectWallet() {
       // Save state after loading
       saveStateToLocalStorage();
       
-      updateWalletUI();
       showStep("stepTasks");
+      // Update wallet UI after step is shown
+      setTimeout(() => {
+        updateWalletUI();
+      }, 50);
       
       // Check network
       const chainId = await ethereum.request({ method: "eth_chainId" });
@@ -434,43 +437,68 @@ async function disconnectWallet() {
 }
 
 function updateWalletUI() {
-  const walletInfo = document.getElementById("walletInfo");
-  const walletAddress = document.getElementById("walletAddress");
-  const connectBtn = document.getElementById("connectWalletBtn");
-  const navLinks = document.querySelector(".nav-links");
+  // Use requestAnimationFrame to ensure DOM is ready
+  requestAnimationFrame(() => {
+    const walletInfo = document.getElementById("walletInfo");
+    const walletAddress = document.getElementById("walletAddress");
+    const connectBtn = document.getElementById("connectWalletBtn");
+    const navLinks = document.querySelector(".nav-links");
 
-  console.log("updateWalletUI called", {
-    walletConnected: state.walletConnected,
-    walletAddress: state.walletAddress,
-    walletInfo: !!walletInfo,
-    walletAddressEl: !!walletAddress
+    console.log("updateWalletUI called", {
+      walletConnected: state.walletConnected,
+      walletAddress: state.walletAddress,
+      walletInfo: !!walletInfo,
+      walletAddressEl: !!walletAddress
+    });
+
+    if (state.walletConnected && state.walletAddress) {
+      if (walletInfo) {
+        walletInfo.style.display = "flex";
+        walletInfo.style.visibility = "visible";
+        walletInfo.style.opacity = "1";
+        walletInfo.removeAttribute("style");
+        walletInfo.setAttribute("style", "display: flex !important; visibility: visible !important; opacity: 1 !important;");
+        console.log("Showing wallet info:", state.walletAddress);
+      }
+      if (walletAddress) {
+        const addressText = `${state.walletAddress.slice(0, 6)}...${state.walletAddress.slice(-4)}`;
+        walletAddress.textContent = addressText;
+        walletAddress.style.display = "inline-block";
+        walletAddress.style.visibility = "visible";
+        walletAddress.removeAttribute("style");
+        walletAddress.setAttribute("style", "display: inline-block !important; visibility: visible !important;");
+        console.log("Setting wallet address text:", addressText);
+      }
+      if (connectBtn) connectBtn.style.display = "none";
+      // Show nav links when wallet is connected
+      if (navLinks) navLinks.style.display = "flex";
+    } else {
+      if (walletInfo) {
+        walletInfo.style.display = "none";
+        walletInfo.style.visibility = "hidden";
+      }
+      if (connectBtn) connectBtn.style.display = "block";
+      if (navLinks) navLinks.style.display = "none";
+    }
+    
+    // Also try again after a short delay to ensure it's visible
+    setTimeout(() => {
+      if (state.walletConnected && state.walletAddress) {
+        const walletInfoRetry = document.getElementById("walletInfo");
+        const walletAddressRetry = document.getElementById("walletAddress");
+        if (walletInfoRetry) {
+          walletInfoRetry.style.display = "flex";
+          walletInfoRetry.style.visibility = "visible";
+          walletInfoRetry.style.opacity = "1";
+        }
+        if (walletAddressRetry) {
+          walletAddressRetry.textContent = `${state.walletAddress.slice(0, 6)}...${state.walletAddress.slice(-4)}`;
+          walletAddressRetry.style.display = "inline-block";
+          walletAddressRetry.style.visibility = "visible";
+        }
+      }
+    }, 100);
   });
-
-  if (state.walletConnected && state.walletAddress) {
-    if (walletInfo) {
-      walletInfo.style.display = "flex";
-      walletInfo.style.visibility = "visible";
-      walletInfo.style.opacity = "1";
-      console.log("Showing wallet info:", state.walletAddress);
-    }
-    if (walletAddress) {
-      const addressText = `${state.walletAddress.slice(0, 6)}...${state.walletAddress.slice(-4)}`;
-      walletAddress.textContent = addressText;
-      walletAddress.style.display = "inline-block";
-      walletAddress.style.visibility = "visible";
-      console.log("Setting wallet address text:", addressText);
-    }
-    if (connectBtn) connectBtn.style.display = "none";
-    // Show nav links when wallet is connected
-    if (navLinks) navLinks.style.display = "flex";
-  } else {
-    if (walletInfo) {
-      walletInfo.style.display = "none";
-      walletInfo.style.visibility = "hidden";
-    }
-    if (connectBtn) connectBtn.style.display = "block";
-    if (navLinks) navLinks.style.display = "none";
-  }
 }
 
 // X Account Functions
