@@ -148,7 +148,6 @@ function initializeApp() {
       connectWallet();
     });
   }
-  document.getElementById("disconnectBtn")?.addEventListener("click", disconnectWallet);
   document.getElementById("confirmFeeBtn")?.addEventListener("click", confirmFeePayment);
   document.getElementById("cancelFeeBtn")?.addEventListener("click", cancelFeePayment);
 
@@ -374,8 +373,13 @@ async function switchNetwork() {
 
 function handleAccountsChanged(accounts) {
   if (accounts.length === 0) {
-    disconnectWallet();
+    // User disconnected wallet in MetaMask - reload page to show wallet connection screen
+    window.location.reload();
+  } else if (accounts[0].toLowerCase() !== state.walletAddress?.toLowerCase()) {
+    // Different wallet connected - reload page to prevent manipulation
+    window.location.reload();
   } else {
+    // Same wallet, just update address
     state.walletAddress = accounts[0];
     updateWalletUI();
   }
