@@ -1550,6 +1550,29 @@ body::before {
   background: var(--yellow-strong);
 }
 
+.history-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0 10px 0;
+}
+
+.history-load-more .btn-secondary {
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text);
+  transition: all 0.3s ease;
+}
+
+.history-load-more .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--yellow);
+  color: var(--yellow);
+  transform: translateY(-2px);
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

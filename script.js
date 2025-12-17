@@ -22,6 +22,7 @@ let state = {
   serverTimeOffset: 0,
   lastFreeBoxClaimTime: null,
   history: [], // Array to store task and box completion history
+  historyDisplayLimit: 10, // Number of history items to show initially
   surpriseBoxes: [
     {
       id: "free",
@@ -1160,7 +1161,12 @@ function renderHistory() {
   // Sort history by timestamp (newest first)
   const sortedHistory = [...state.history].sort((a, b) => b.timestamp - a.timestamp);
   
-  historyContainer.innerHTML = sortedHistory
+  // Determine how many items to show
+  const itemsToShow = Math.min(state.historyDisplayLimit, sortedHistory.length);
+  const displayedHistory = sortedHistory.slice(0, itemsToShow);
+  const hasMore = sortedHistory.length > state.historyDisplayLimit;
+  
+  let html = displayedHistory
     .map((entry, index) => {
       const date = new Date(entry.timestamp);
       const formattedDate = date.toLocaleDateString('en-US', { 
@@ -1193,6 +1199,29 @@ function renderHistory() {
       `;
     })
     .join("");
+  
+  // Add "Show More" button if there are more items
+  if (hasMore) {
+    html += `
+      <div class="history-load-more">
+        <button class="btn-secondary" id="showMoreHistoryBtn">
+          Show More (${sortedHistory.length - itemsToShow} more)
+        </button>
+      </div>
+    `;
+  }
+  
+  historyContainer.innerHTML = html;
+  
+  // Add event listener to "Show More" button
+  const showMoreBtn = document.getElementById("showMoreHistoryBtn");
+  if (showMoreBtn) {
+    showMoreBtn.addEventListener("click", () => {
+      // Increase display limit by 10 more items
+      state.historyDisplayLimit += 10;
+      renderHistory();
+    });
+  }
 }
 
 function calculateBoxXP(box) {
@@ -1333,7 +1362,8 @@ function saveStateToLocalStorage() {
         nextClaimTime: state.nextClaimTime,
         serverTimeOffset: state.serverTimeOffset,
         lastFreeBoxClaimTime: state.lastFreeBoxClaimTime,
-        history: state.history || []
+        history: state.history || [],
+        historyDisplayLimit: state.historyDisplayLimit || 10
       };
       localStorage.setItem(walletKey, JSON.stringify(walletState));
     }
@@ -1414,6 +1444,9 @@ function loadStateFromLocalStorage(overrideWalletState = false) {
         // Load history
         if (parsed.history && Array.isArray(parsed.history)) {
           state.history = parsed.history;
+        }
+        if (parsed.historyDisplayLimit !== undefined) {
+          state.historyDisplayLimit = parsed.historyDisplayLimit;
         }
       } else {
         // No saved state for this wallet - reset to initial state
