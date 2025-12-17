@@ -135,9 +135,43 @@ function initializeApp() {
 
 // Wallet Functions
 async function checkWalletConnection() {
-  // Don't auto-connect on page load - user must click connect button
-  // This ensures MetaMask popup appears when user wants to connect
-  return;
+  // Load saved state from localStorage first
+  loadStateFromLocalStorage();
+  
+  // If we have a saved wallet address, try to reconnect silently
+  if (state.walletAddress && typeof window.ethereum !== "undefined") {
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_accounts" });
+      // Check if saved wallet is still connected in MetaMask
+      if (accounts.length > 0 && accounts[0].toLowerCase() === state.walletAddress.toLowerCase()) {
+        state.walletConnected = true;
+        state.walletAddress = accounts[0];
+        updateWalletUI();
+        showStep("stepTasks");
+        fetchLeaderboard();
+        
+        // Set up event listeners
+        window.ethereum.on("accountsChanged", handleAccountsChanged);
+        window.ethereum.on("chainChanged", handleChainChanged);
+      } else {
+        // Saved wallet is not connected, clear state
+        state.walletConnected = false;
+        state.walletAddress = null;
+        updateWalletUI();
+        showStep("stepWallet");
+      }
+    } catch (error) {
+      console.error("Error checking wallet:", error);
+      // On error, clear state and show wallet connection screen
+      state.walletConnected = false;
+      state.walletAddress = null;
+      updateWalletUI();
+      showStep("stepWallet");
+    }
+  } else {
+    // No saved wallet, show connection screen
+    showStep("stepWallet");
+  }
 }
 
 async function connectWallet() {
@@ -490,8 +524,10 @@ async function handleTaskAction(task) {
       updateTotalXP();
       renderTasks();
       
-      // Save state and update server
+      // Save state to localStorage immediately
       saveStateToLocalStorage();
+      
+      // Update server
       await updateUserOnServer();
       
       // Refresh leaderboard
@@ -534,8 +570,10 @@ function saveStateToLocalStorage() {
   try {
     const stateToSave = {
       walletAddress: state.walletAddress,
+      walletConnected: state.walletConnected,
       xConnected: state.xConnected,
       tasks: state.tasks,
+      totalXP: state.totalXP,
       timeBasedTotalXP: state.timeBasedTotalXP || 0,
       lastClaimTime: state.lastClaimTime,
       nextClaimTime: state.nextClaimTime,
@@ -552,12 +590,29 @@ function loadStateFromLocalStorage() {
     const savedState = localStorage.getItem('earnState');
     if (savedState) {
       const parsed = JSON.parse(savedState);
+      
+      // Load wallet info
+      if (parsed.walletAddress) {
+        state.walletAddress = parsed.walletAddress;
+      }
+      if (parsed.walletConnected !== undefined) {
+        state.walletConnected = parsed.walletConnected;
+      }
+      
+      // Load tasks
       if (parsed.tasks) {
         state.tasks = parsed.tasks;
       }
+      
+      // Load XP data
       if (parsed.timeBasedTotalXP !== undefined) {
         state.timeBasedTotalXP = parsed.timeBasedTotalXP;
       }
+      if (parsed.totalXP !== undefined) {
+        state.totalXP = parsed.totalXP;
+      }
+      
+      // Load time-based claim data
       if (parsed.lastClaimTime) {
         state.lastClaimTime = parsed.lastClaimTime;
       }
@@ -567,6 +622,8 @@ function loadStateFromLocalStorage() {
       if (parsed.serverTimeOffset !== undefined) {
         state.serverTimeOffset = parsed.serverTimeOffset;
       }
+      
+      // Update UI
       updateTotalXP();
     }
   } catch (error) {
