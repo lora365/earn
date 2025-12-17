@@ -1230,12 +1230,19 @@ body::before {
   justify-content: center;
   align-items: center;
   margin-bottom: 16px;
+  font-size: 80px;
+  line-height: 1;
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+  animation: float 3s ease-in-out infinite;
 }
 
-.surprise-box-icon svg {
-  width: 80px;
-  height: 80px;
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
 /* Box-specific styles */

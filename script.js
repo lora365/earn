@@ -1002,36 +1002,12 @@ function updateTotalXP() {
 
 // Surprise Box Functions
 function getBoxIcon(boxId) {
-  // Return SVG icons for each box type
+  // Return emoji icons for each box type
   const icons = {
-    bronze: `<svg width="80" height="80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="20" y="30" width="60" height="50" rx="4" fill="#cd7f32" stroke="#8b5a2b" stroke-width="2"/>
-      <rect x="25" y="35" width="50" height="40" rx="2" fill="#b87333" opacity="0.8"/>
-      <rect x="30" y="40" width="40" height="30" rx="2" fill="#cd7f32"/>
-      <path d="M35 45 L65 45 M35 50 L65 50 M35 55 L65 55" stroke="#8b5a2b" stroke-width="1.5"/>
-      <rect x="45" y="20" width="10" height="12" rx="2" fill="#cd7f32" stroke="#8b5a2b" stroke-width="1"/>
-    </svg>`,
-    silver: `<svg width="80" height="80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="20" y="30" width="60" height="50" rx="4" fill="#c0c0c0" stroke="#808080" stroke-width="2"/>
-      <rect x="25" y="35" width="50" height="40" rx="2" fill="#e8e8e8" opacity="0.8"/>
-      <rect x="30" y="40" width="40" height="30" rx="2" fill="#c0c0c0"/>
-      <path d="M35 45 L65 45 M35 50 L65 50 M35 55 L65 55" stroke="#808080" stroke-width="1.5"/>
-      <rect x="45" y="20" width="10" height="12" rx="2" fill="#c0c0c0" stroke="#808080" stroke-width="1"/>
-    </svg>`,
-    gold: `<svg width="80" height="80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="20" y="30" width="60" height="50" rx="4" fill="#ffd700" stroke="#ffa500" stroke-width="2"/>
-      <rect x="25" y="35" width="50" height="40" rx="2" fill="#ffed4e" opacity="0.8"/>
-      <rect x="30" y="40" width="40" height="30" rx="2" fill="#ffd700"/>
-      <path d="M35 45 L65 45 M35 50 L65 50 M35 55 L65 55" stroke="#ffa500" stroke-width="1.5"/>
-      <rect x="45" y="20" width="10" height="12" rx="2" fill="#ffd700" stroke="#ffa500" stroke-width="1"/>
-    </svg>`,
-    free: `<svg width="80" height="80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="20" y="30" width="60" height="50" rx="4" fill="#4a90e2" stroke="#2c5aa0" stroke-width="2"/>
-      <rect x="25" y="35" width="50" height="40" rx="2" fill="#6ba3e8" opacity="0.8"/>
-      <rect x="30" y="40" width="40" height="30" rx="2" fill="#4a90e2"/>
-      <path d="M35 45 L65 45 M35 50 L65 50 M35 55 L65 55" stroke="#2c5aa0" stroke-width="1.5"/>
-      <rect x="45" y="20" width="10" height="12" rx="2" fill="#4a90e2" stroke="#2c5aa0" stroke-width="1"/>
-    </svg>`
+    bronze: '📦',
+    silver: '🎁',
+    gold: '💎',
+    free: '🎁'
   };
   return icons[boxId] || icons.free;
 }
