@@ -1,9 +1,12 @@
 // Configuration
 const CONFIG = {
   FEE_AMOUNT: "0.000012", // BNB
+  TIME_BASED_FEE_AMOUNT: "0.00006", // BNB for time-based claim
   TREASURY_WALLET: "0xa382b392b0ef1f16a70ff6708363b95f87b915f6", // Resilora treasury wallet
   CHAIN_ID: 56, // BSC Mainnet (use 97 for testnet)
   API_BASE_URL: window.location.origin, // Use same origin for API calls
+  TIME_BASED_CLAIM_INTERVAL: 10800000, // 3 hours in milliseconds
+  TIME_BASED_CLAIM_XP: 200,
 };
 
 // State
@@ -61,6 +64,15 @@ let state = {
       status: "pending",
       action: "telegram",
       actionUrl: "https://t.me/resilora_official",
+    },
+    {
+      id: 8,
+      title: "Daily XP Claim",
+      description: "Claim your XP reward. You can claim again after the cooldown period.",
+      xp: CONFIG.TIME_BASED_CLAIM_XP,
+      status: "pending",
+      action: "timebased",
+      isTimeBased: true,
     },
   ],
 };
@@ -566,9 +578,74 @@ function updateXStatus() {
 // Task Functions
 function renderTasks() {
   const tasksGrid = document.getElementById("tasksGrid");
+  const timeBasedTaskContainer = document.getElementById("timeBasedTaskContainer");
   if (!tasksGrid) return;
 
-  tasksGrid.innerHTML = state.tasks
+  // Separate time-based tasks from regular tasks
+  const regularTasks = state.tasks.filter(task => !task.isTimeBased);
+  const timeBasedTasks = state.tasks.filter(task => task.isTimeBased);
+
+  // Render time-based task in featured container
+  if (timeBasedTaskContainer && timeBasedTasks.length > 0) {
+    const timeBasedTask = timeBasedTasks[0];
+    const canClaim = !state.nextClaimTime || Date.now() >= (state.nextClaimTime + state.serverTimeOffset);
+    const statusClass = canClaim ? "available" : "claimed";
+    
+    // Calculate time remaining
+    let timeRemaining = 0;
+    let countdownText = "";
+    if (state.nextClaimTime && !canClaim) {
+      const adjustedNextClaimTime = state.nextClaimTime + state.serverTimeOffset;
+      timeRemaining = Math.max(0, adjustedNextClaimTime - Date.now());
+      const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+      const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
+      countdownText = `${hours}h ${minutes}m ${seconds}s`;
+    }
+    
+    timeBasedTaskContainer.innerHTML = `
+      <div class="task-card-featured ${statusClass}">
+        <div class="task-header">
+          <div class="task-title">${timeBasedTask.title}</div>
+          <div class="task-xp">+${timeBasedTask.xp} XP</div>
+        </div>
+        <div class="task-description">${timeBasedTask.description}</div>
+        <div class="task-actions">
+          ${getTaskButton(timeBasedTask, countdownText)}
+        </div>
+      </div>
+    `;
+    
+    // Add event listener for time-based task
+    const timeBasedBtn = document.getElementById(`task-btn-${timeBasedTask.id}`);
+    if (timeBasedBtn) {
+      timeBasedBtn.addEventListener("click", () => handleTaskAction(timeBasedTask));
+    }
+    
+    // Update countdown timer
+    if (!canClaim && timeRemaining > 0) {
+      const countdownInterval = setInterval(() => {
+        const adjustedNextClaimTime = state.nextClaimTime + state.serverTimeOffset;
+        const remaining = Math.max(0, adjustedNextClaimTime - Date.now());
+        if (remaining <= 0) {
+          clearInterval(countdownInterval);
+          renderTasks(); // Re-render to update UI
+        } else {
+          const hours = Math.floor(remaining / (1000 * 60 * 60));
+          const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+          const countdownText = `${hours}h ${minutes}m ${seconds}s`;
+          const btn = document.getElementById(`task-btn-${timeBasedTask.id}`);
+          if (btn) {
+            btn.textContent = `Claim in ${countdownText}`;
+          }
+        }
+      }, 1000);
+    }
+  }
+
+  // Render regular tasks
+  tasksGrid.innerHTML = regularTasks
     .map((task, index) => {
       const statusClass = task.status === "completed" ? "completed" : "";
       return `
@@ -630,7 +707,17 @@ function renderTasks() {
   });
 }
 
-function getTaskButton(task) {
+function getTaskButton(task, countdownText = "") {
+  // Handle time-based tasks
+  if (task.isTimeBased) {
+    const canClaim = !state.nextClaimTime || Date.now() >= (state.nextClaimTime + state.serverTimeOffset);
+    if (canClaim) {
+      return `<button class="btn-primary" id="task-btn-${task.id}">Claim ${task.xp} XP</button>`;
+    } else {
+      return `<button class="btn-primary" id="task-btn-${task.id}" disabled style="opacity: 0.5; cursor: not-allowed;">Claim in ${countdownText || "..."}</button>`;
+    }
+  }
+  
   if (task.status === "completed") {
     return `<div class="task-status completed">Completed</div>`;
   } else if (task.status === "claimable") {
@@ -681,6 +768,66 @@ async function handleTaskAction(task) {
   try {
     showLoading(true);
     
+    // Handle time-based tasks with server-side validation
+    if (task.isTimeBased) {
+      // Get server timestamp first
+      const serverTimestamp = await getServerTimestamp();
+      const clientTimestamp = Date.now();
+      state.serverTimeOffset = serverTimestamp - clientTimestamp;
+      
+      // Validate claim with server
+      const validationResult = await validateTimeBasedClaim(
+        state.walletAddress,
+        task.id,
+        clientTimestamp
+      );
+      
+      if (!validationResult.success) {
+        showLoading(false);
+        alert(validationResult.error || "Claim validation failed. Please try again.");
+        return;
+      }
+      
+      // Update claim times from server response
+      state.lastClaimTime = validationResult.lastClaimTime;
+      state.nextClaimTime = validationResult.nextClaimTime;
+      state.serverTimeOffset = validationResult.serverTime - clientTimestamp;
+      
+      // Use time-based fee amount
+      const feeWei = (parseFloat(CONFIG.TIME_BASED_FEE_AMOUNT) * 1e18).toString(16);
+      
+      const txHash = await window.ethereum.request({
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: state.walletAddress,
+            to: CONFIG.TREASURY_WALLET,
+            value: `0x${feeWei}`,
+          },
+        ],
+      });
+
+      // Wait for transaction confirmation
+      await waitForTransaction(txHash);
+      
+      // Update time-based XP
+      state.timeBasedTotalXP += task.xp;
+      
+      // Update UI
+      updateTotalXP();
+      renderTasks();
+      
+      // Save state to localStorage immediately
+      saveStateToLocalStorage();
+      
+      // Update server
+      await updateUserOnServer();
+      
+      showLoading(false);
+      return;
+    }
+    
+    // Regular tasks
     // Send transaction directly to MetaMask (no fee modal)
     const feeWei = (parseFloat(CONFIG.FEE_AMOUNT) * 1e18).toString(16);
     
@@ -730,6 +877,43 @@ async function handleTaskAction(task) {
     } else {
       alert("Failed to verify task. Please try again.");
     }
+  }
+}
+
+// Server timestamp and validation functions
+async function getServerTimestamp() {
+  try {
+    const response = await fetch(`${CONFIG.API_BASE_URL}/api/timestamp`);
+    const data = await response.json();
+    return data.timestamp;
+  } catch (error) {
+    console.error("Error fetching server timestamp:", error);
+    return Date.now(); // Fallback to client time
+  }
+}
+
+async function validateTimeBasedClaim(walletAddress, taskId, clientTimestamp) {
+  try {
+    const response = await fetch(`${CONFIG.API_BASE_URL}/api/time-based-claim`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        walletAddress,
+        taskId,
+        clientTimestamp,
+        lastClaimTime: state.lastClaimTime,
+        nextClaimTime: state.nextClaimTime,
+        serverTimeOffset: state.serverTimeOffset,
+      }),
+    });
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error validating time-based claim:", error);
+    return { success: false, error: "Failed to validate claim" };
   }
 }
 

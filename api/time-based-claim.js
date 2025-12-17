@@ -58,7 +58,7 @@ module.exports = async (req, res) => {
     }
     
     // Claim is valid - return server timestamp for next claim
-    const newNextClaimTime = serverTime + (12 * 60 * 60 * 1000); // 12 hours from now
+    const newNextClaimTime = serverTime + (3 * 60 * 60 * 1000); // 3 hours from now
     
     res.json({
       success: true,
