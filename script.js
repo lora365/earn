@@ -308,8 +308,8 @@ async function connectWallet() {
         walletAddress: state.walletAddress
       });
       
-      // Load saved state for this specific wallet
-      loadStateFromLocalStorage();
+      // Load saved state for this specific wallet (don't override wallet connection state)
+      loadStateFromLocalStorage(true);
       
       // Save state after loading
       saveStateToLocalStorage();
@@ -787,17 +787,20 @@ function saveStateToLocalStorage() {
   }
 }
 
-function loadStateFromLocalStorage() {
+function loadStateFromLocalStorage(overrideWalletState = false) {
   try {
     // Load general state
     const savedState = localStorage.getItem('earnState');
     if (savedState) {
       const parsed = JSON.parse(savedState);
-      if (parsed.walletConnected !== undefined) {
-        state.walletConnected = parsed.walletConnected;
-      }
-      if (parsed.walletAddress) {
-        state.walletAddress = parsed.walletAddress;
+      // Only load wallet state if not overriding (i.e., on page load)
+      if (!overrideWalletState) {
+        if (parsed.walletConnected !== undefined) {
+          state.walletConnected = parsed.walletConnected;
+        }
+        if (parsed.walletAddress) {
+          state.walletAddress = parsed.walletAddress;
+        }
       }
     }
     
