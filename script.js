@@ -1007,7 +1007,7 @@ function getBoxIcon(boxId) {
     bronze: '📦',
     silver: '🎁',
     gold: '💎',
-    free: '🎁'
+    free: '❤️'
   };
   return icons[boxId] || icons.free;
 }
