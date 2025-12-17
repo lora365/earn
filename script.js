@@ -460,7 +460,6 @@ function updateWalletUI() {
     const walletInfo = document.getElementById("walletInfo");
     const walletAddress = document.getElementById("walletAddress");
     const connectBtn = document.getElementById("connectWalletBtn");
-    const navLinks = document.querySelector(".nav-links");
 
   console.log("updateWalletUI called", {
     walletConnected: state.walletConnected,
@@ -491,15 +490,12 @@ function updateWalletUI() {
         console.log("Setting wallet address text:", addressText);
       }
       if (connectBtn) connectBtn.style.display = "none";
-      // Show nav links when wallet is connected
-      if (navLinks) navLinks.style.display = "flex";
     } else {
       if (walletInfo) {
         walletInfo.style.display = "none";
         walletInfo.style.visibility = "hidden";
       }
       if (connectBtn) connectBtn.style.display = "block";
-      if (navLinks) navLinks.style.display = "none";
     }
     
     // Also try again after a short delay to ensure it's visible
