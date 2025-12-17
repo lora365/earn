@@ -24,7 +24,6 @@
           <div class="logo brand-name">resilora</div>
           <nav class="nav-links" style="display: none;">
             <a href="#tasks" onclick="if(!state.walletConnected || !state.walletAddress) { return false; } if(document.getElementById('stepTasks')) { showStep('stepTasks'); setTimeout(() => { const tasksHeader = document.querySelector('.tasks-header'); if(tasksHeader) { const headerHeight = document.querySelector('.app-header')?.offsetHeight || 80; const offset = tasksHeader.getBoundingClientRect().top + window.pageYOffset - headerHeight - 20; window.scrollTo({ top: offset, behavior: 'smooth' }); } }, 100); } return false;">Tasks</a>
-            <a href="#leaderboard" onclick="if(!state.walletConnected || !state.walletAddress) { return false; } if(document.getElementById('stepTasks')) { showStep('stepTasks'); setTimeout(() => { const leaderboardSection = document.querySelector('.leaderboard-section'); if(leaderboardSection) { const headerHeight = document.querySelector('.app-header')?.offsetHeight || 80; const offset = leaderboardSection.getBoundingClientRect().top + window.pageYOffset - headerHeight - 20; window.scrollTo({ top: offset, behavior: 'smooth' }); } }, 100); } return false;">Leaderboard</a>
           </nav>
           <div class="header-actions">
             <div class="wallet-info" id="walletInfo" style="display: none;">

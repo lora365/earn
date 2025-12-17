@@ -145,9 +145,6 @@ function initializeApp() {
 
   // Load tasks
   renderTasks();
-
-  // Fetch leaderboard
-  fetchLeaderboard();
 }
 
 // Wallet Functions
@@ -169,7 +166,6 @@ async function checkWalletConnection() {
         
         updateWalletUI();
         showStep("stepTasks");
-        fetchLeaderboard();
         
         // Set up event listeners
         window.ethereum.on("accountsChanged", handleAccountsChanged);
@@ -296,8 +292,6 @@ async function connectWallet() {
       
       updateWalletUI();
       showStep("stepTasks");
-      // Fetch leaderboard after wallet connection
-      fetchLeaderboard();
       
       // Check network
       const chainId = await ethereum.request({ method: "eth_chainId" });
@@ -418,12 +412,6 @@ async function disconnectWallet() {
   showStep("stepWallet");
   renderTasks();
   updateTotalXP();
-  
-  // Clear leaderboard or show empty state
-  const leaderboardList = document.getElementById('leaderboardList');
-  if (leaderboardList) {
-    leaderboardList.innerHTML = '<div class="leaderboard-entry" style="text-align: center; padding: 20px; color: #888;">Connect your wallet to see the leaderboard</div>';
-  }
 }
 
 function updateWalletUI() {
@@ -471,8 +459,6 @@ async function connectXAccount() {
     saveStateToLocalStorage();
     showStep("stepTasks");
     showLoading(false);
-    // Fetch leaderboard after X connection
-    fetchLeaderboard();
   } catch (error) {
     console.error("Error connecting X account:", error);
     showLoading(false);
@@ -647,9 +633,6 @@ async function handleTaskAction(task) {
     
     // Update server
     await updateUserOnServer();
-    
-    // Refresh leaderboard
-    await fetchLeaderboard();
     
     showLoading(false);
   } catch (error) {
