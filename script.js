@@ -53,6 +53,15 @@ let state = {
       action: "share",
       actionUrl: "https://x.com/resilora_xyz",
     },
+    {
+      id: 5,
+      title: "Join Resilora Telegram",
+      description: "Join the Resilora Telegram community to stay connected and get updates.",
+      xp: 200,
+      status: "pending",
+      action: "telegram",
+      actionUrl: "https://t.me/resilora_official",
+    },
   ],
 };
 
@@ -558,11 +567,14 @@ function getTaskButton(task) {
     const timerData = localStorage.getItem(taskTimerKey);
     const isEnabled = timerData && (Date.now() - parseInt(timerData)) >= 5000;
     
+    // Determine button text based on task action
+    const buttonText = task.action === "telegram" ? "Join Telegram" : "Open X";
+    
     return `
       <a href="${task.actionUrl}" target="_blank" class="btn-secondary" style="text-decoration: none; display: inline-block;" onclick="startTaskTimer(${task.id})">
-        Open X
+        ${buttonText}
       </a>
-      <button class="btn-primary" id="task-btn-${task.id}" ${isEnabled ? '' : 'disabled style="opacity: 0.5; cursor: not-allowed;"'} title="${isEnabled ? '' : 'Please complete the task first by clicking \'Open X\''}">
+      <button class="btn-primary" id="task-btn-${task.id}" ${isEnabled ? '' : 'disabled style="opacity: 0.5; cursor: not-allowed;"'} title="${isEnabled ? '' : `Please complete the task first by clicking '${buttonText}'`}">
         Verify & Claim
       </button>
     `;
