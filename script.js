@@ -732,6 +732,9 @@ function loadStateFromLocalStorage() {
       if (parsed.walletConnected !== undefined) {
         state.walletConnected = parsed.walletConnected;
       }
+      if (parsed.walletAddress) {
+        state.walletAddress = parsed.walletAddress;
+      }
     }
     
     // Load wallet-specific state only if wallet is connected
