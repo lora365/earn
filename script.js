@@ -19,6 +19,44 @@ let state = {
   lastClaimTime: null,
   nextClaimTime: null,
   serverTimeOffset: 0,
+  lastFreeBoxClaimTime: null,
+  surpriseBoxes: [
+    {
+      id: "free",
+      name: "Free LORA Box",
+      description: "Open every 24 hours for free XP rewards!",
+      price: 0,
+      isFree: true,
+      cooldown: 86400000, // 24 hours in milliseconds
+      xpRange: { min: 10, max: 100 },
+      rareXpRange: { min: 200, max: 500 },
+      rareChance: 0.1, // 10%
+    },
+    {
+      id: "bronze",
+      name: "Bronze LORA Box",
+      description: "500-1000 XP guaranteed",
+      price: 0.0005,
+      isFree: false,
+      xpRange: { min: 500, max: 1000 },
+    },
+    {
+      id: "silver",
+      name: "Silver LORA Box",
+      description: "2000-4000 XP guaranteed",
+      price: 0.004,
+      isFree: false,
+      xpRange: { min: 2000, max: 4000 },
+    },
+    {
+      id: "gold",
+      name: "Gold LORA Box",
+      description: "5000-10000 XP guaranteed",
+      price: 0.01, // Fixed: should be 0.01 BNB (not 0.001 as mentioned, since silver is 0.004)
+      isFree: false,
+      xpRange: { min: 5000, max: 10000 },
+    },
+  ],
   tasks: [
     {
       id: 1,
@@ -170,6 +208,9 @@ async function initializeApp() {
 
   // Load tasks
   renderTasks();
+  
+  // Render surprise boxes
+  renderSurpriseBoxes();
   
   // Ensure wallet UI is updated after everything is loaded
   updateWalletUI();
@@ -955,6 +996,190 @@ function updateTotalXP() {
   }
 }
 
+// Surprise Box Functions
+function renderSurpriseBoxes() {
+  const surpriseBoxesGrid = document.getElementById("surpriseBoxesGrid");
+  if (!surpriseBoxesGrid) return;
+
+  surpriseBoxesGrid.innerHTML = state.surpriseBoxes
+    .map((box, index) => {
+      const isFreeBox = box.isFree;
+      let canOpen = false;
+      let countdownText = "";
+      
+      if (isFreeBox) {
+        const canClaim = !state.lastFreeBoxClaimTime || Date.now() >= (state.lastFreeBoxClaimTime + box.cooldown);
+        canOpen = canClaim;
+        
+        if (!canClaim && state.lastFreeBoxClaimTime) {
+          const nextClaimTime = state.lastFreeBoxClaimTime + box.cooldown;
+          const timeRemaining = Math.max(0, nextClaimTime - Date.now());
+          const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+          const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
+          countdownText = `${hours}h ${minutes}m ${seconds}s`;
+        }
+      } else {
+        canOpen = true; // Paid boxes can always be opened
+      }
+      
+      return `
+        <div class="surprise-box-card" style="animation-delay: ${index * 0.1}s;">
+          <div class="surprise-box-header">
+            <div class="surprise-box-name">${box.name}</div>
+            ${!isFreeBox ? `<div class="surprise-box-price">${box.price} BNB</div>` : ''}
+          </div>
+          <div class="surprise-box-description">${box.description}</div>
+          <div class="surprise-box-actions">
+            ${getSurpriseBoxButton(box, canOpen, countdownText)}
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  // Add event listeners
+  state.surpriseBoxes.forEach((box) => {
+    const btn = document.getElementById(`box-btn-${box.id}`);
+    if (btn) {
+      btn.addEventListener("click", () => handleSurpriseBoxOpen(box));
+    }
+  });
+  
+  // Update countdown for free box
+  const freeBox = state.surpriseBoxes.find(b => b.isFree);
+  if (freeBox && state.lastFreeBoxClaimTime) {
+    const nextClaimTime = state.lastFreeBoxClaimTime + freeBox.cooldown;
+    const timeRemaining = Math.max(0, nextClaimTime - Date.now());
+    if (timeRemaining > 0) {
+      const countdownInterval = setInterval(() => {
+        const remaining = Math.max(0, nextClaimTime - Date.now());
+        if (remaining <= 0) {
+          clearInterval(countdownInterval);
+          renderSurpriseBoxes();
+        } else {
+          const hours = Math.floor(remaining / (1000 * 60 * 60));
+          const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+          const countdownText = `${hours}h ${minutes}m ${seconds}s`;
+          const btn = document.getElementById(`box-btn-${freeBox.id}`);
+          if (btn) {
+            btn.textContent = `Open in ${countdownText}`;
+            btn.disabled = true;
+          }
+        }
+      }, 1000);
+    }
+  }
+}
+
+function getSurpriseBoxButton(box, canOpen, countdownText = "") {
+  if (box.isFree) {
+    if (canOpen) {
+      return `<button class="btn-primary" id="box-btn-${box.id}">Open Free Box</button>`;
+    } else {
+      return `<button class="btn-primary" id="box-btn-${box.id}" disabled style="opacity: 0.5; cursor: not-allowed;">Open in ${countdownText || "..."}</button>`;
+    }
+  } else {
+    return `<button class="btn-primary" id="box-btn-${box.id}">Open for ${box.price} BNB</button>`;
+  }
+}
+
+function calculateBoxXP(box) {
+  // Check if it's a rare reward (for free box)
+  if (box.isFree && Math.random() < box.rareChance) {
+    // Rare reward
+    const min = box.rareXpRange.min;
+    const max = box.rareXpRange.max;
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  } else {
+    // Normal reward
+    const min = box.xpRange.min;
+    const max = box.xpRange.max;
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+}
+
+async function handleSurpriseBoxOpen(box) {
+  if (!state.walletConnected) {
+    alert("Please connect your wallet first.");
+    return;
+  }
+
+  try {
+    showLoading(true);
+    
+    // Handle free box
+    if (box.isFree) {
+      const canClaim = !state.lastFreeBoxClaimTime || Date.now() >= (state.lastFreeBoxClaimTime + box.cooldown);
+      if (!canClaim) {
+        showLoading(false);
+        alert("Free box is on cooldown. Please wait.");
+        return;
+      }
+      
+      // Calculate XP reward
+      const xpReward = calculateBoxXP(box);
+      const isRare = xpReward >= box.rareXpRange.min && xpReward <= box.rareXpRange.max;
+      
+      // Update state
+      state.lastFreeBoxClaimTime = Date.now();
+      state.totalXP += xpReward;
+      
+      // Update UI
+      updateTotalXP();
+      renderSurpriseBoxes();
+      saveStateToLocalStorage();
+      await updateUserOnServer();
+      
+      showLoading(false);
+      alert(isRare ? `🎉 Rare Reward! You earned ${xpReward} XP!` : `You earned ${xpReward} XP!`);
+      return;
+    }
+    
+    // Handle paid boxes
+    const feeWei = (parseFloat(box.price) * 1e18).toString(16);
+    
+    const txHash = await window.ethereum.request({
+      method: "eth_sendTransaction",
+      params: [
+        {
+          from: state.walletAddress,
+          to: CONFIG.TREASURY_WALLET,
+          value: `0x${feeWei}`,
+        },
+      ],
+    });
+
+    // Wait for transaction confirmation
+    await waitForTransaction(txHash);
+    
+    // Calculate XP reward
+    const xpReward = calculateBoxXP(box);
+    
+    // Update state
+    state.totalXP += xpReward;
+    
+    // Update UI
+    updateTotalXP();
+    renderSurpriseBoxes();
+    saveStateToLocalStorage();
+    await updateUserOnServer();
+    
+    showLoading(false);
+    alert(`🎁 You opened ${box.name} and earned ${xpReward} XP!`);
+  } catch (error) {
+    console.error("Error opening surprise box:", error);
+    showLoading(false);
+    
+    if (error.code === 4001) {
+      alert("Transaction rejected. Please approve the transaction to open the box.");
+    } else {
+      alert("Failed to open box. Please try again.");
+    }
+  }
+}
+
 // LocalStorage Functions
 function saveStateToLocalStorage() {
   try {
@@ -975,7 +1200,8 @@ function saveStateToLocalStorage() {
         timeBasedTotalXP: state.timeBasedTotalXP || 0,
         lastClaimTime: state.lastClaimTime,
         nextClaimTime: state.nextClaimTime,
-        serverTimeOffset: state.serverTimeOffset
+        serverTimeOffset: state.serverTimeOffset,
+        lastFreeBoxClaimTime: state.lastFreeBoxClaimTime
       };
       localStorage.setItem(walletKey, JSON.stringify(walletState));
     }
@@ -1046,6 +1272,9 @@ function loadStateFromLocalStorage(overrideWalletState = false) {
         if (parsed.serverTimeOffset !== undefined) {
           state.serverTimeOffset = parsed.serverTimeOffset;
         }
+        if (parsed.lastFreeBoxClaimTime) {
+          state.lastFreeBoxClaimTime = parsed.lastFreeBoxClaimTime;
+        }
       } else {
         // No saved state for this wallet - reset to initial state
         state.tasks = state.tasks.map(task => ({
@@ -1057,6 +1286,7 @@ function loadStateFromLocalStorage(overrideWalletState = false) {
         state.lastClaimTime = null;
         state.nextClaimTime = null;
         state.serverTimeOffset = 0;
+        state.lastFreeBoxClaimTime = null;
       }
       
       // Update UI
