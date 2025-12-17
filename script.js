@@ -1,7 +1,7 @@
 // Configuration
 const CONFIG = {
   FEE_AMOUNT: "0.000012", // BNB
-  TREASURY_WALLET: "0x0000000000000000000000000000000000000000", // TODO: Replace with actual treasury wallet
+  TREASURY_WALLET: "0xa382b392b0ef1f16a70ff6708363b95f87b915f6", // Resilora treasury wallet
   CHAIN_ID: 56, // BSC Mainnet (use 97 for testnet)
   API_BASE_URL: window.location.origin, // Use same origin for API calls
 };
